@@ -1,0 +1,202 @@
+---
+title: "Download MIMIC-III Files"
+output: html_notebook
+---
+
+efg | 2018-07-03
+
+Start at [PhysioNet web page](https://physionet.org/) and select  [MIMIC-III Database](https://mimic.physionet.org/).
+
+Select **Data** and complete all the requirements to access MIMIC-III.
+
+Once you have a username and password, run this script ...
+
+Assume *scripts* starting directory.
+
+```
+    MIMIC-III
+        scripts
+            000-Download
+                DownloadMIMIC-III.Rmd
+        raw
+        data
+```
+
+A *raw* directory will be created for the downloadeded compressed files, which will be unzipped to form the *data* directory.
+
+THe *raw* directory could be deleted at the conclusion of this script, but that is left as a manual operation.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+time.1 <- Sys.time()
+```
+
+```{r}
+suppressPackageStartupMessages( library(R.utils) )   # downloadFile, gunzip
+suppressPackageStartupMessages( library(dplyr) )
+library(tools)      # md5sum
+library(tibble)     # rownames_to_column
+library(kableExtra) # kable_styling
+```
+
+```{r}
+rawDIR  <- "../../raw/"
+if (!dir.exists(rawDIR)) dir.create(rawDIR)
+
+dataDIR <- "../../data/" 
+if (!dir.exists(dataDIR)) dir.create(dataDIR)
+```
+
+## Prompts for the PhysioNet username and password
+
+```{r}
+username <- rstudioapi::showPrompt(title="PhysioNet Username:", message="Username", default="")
+password <- rstudioapi::askForPassword(prompt="PhysioNet Password:")  # hide password 
+```
+
+## Download files
+
+Somewhat tricky because of password-protected site.
+
+I normally use **download** from **downloader** package, but it offers no password option.  **downloadFile** does the trick.
+
+### md5sum files
+
+```{r}
+URL <- "https://physionet.org/works/MIMICIIIClinicalDatabase/files/version_1_4/"
+
+filename <- "checksum_md5_zipped.txt"
+downloadFile(paste0(URL, filename), mode="wb", username=username, password=password, quiet=TRUE)
+
+filename <- "checksum_md5_unzipped.txt"
+downloadFile(paste0(URL, filename), mode="wb", username=username, password=password, quiet=TRUE)
+```
+
+### gz files
+
+List of files to download to "raw" directory.
+
+```{r}
+gzFileNames <- c(
+  "ADMISSIONS.csv.gz",
+  "CALLOUT.csv.gz",
+  "CAREGIVERS.csv.gz",
+  "CHARTEVENTS.csv.gz",
+  "CPTEVENTS.csv.gz",
+  "DATETIMEEVENTS.csv.gz",
+  "DIAGNOSES_ICD.csv.gz",
+  "DRGCODES.csv.gz",
+  "D_CPT.csv.gz",
+  "D_ICD_DIAGNOSES.csv.gz",
+  "D_ICD_PROCEDURES.csv.gz",
+  "D_ITEMS.csv.gz",
+  "D_LABITEMS.csv.gz",
+  "ICUSTAYS.csv.gz",
+  "INPUTEVENTS_CV.csv.gz",
+  "INPUTEVENTS_MV.csv.gz",
+  "LABEVENTS.csv.gz",
+  "MICROBIOLOGYEVENTS.csv.gz",
+  "NOTEEVENTS.csv.gz",
+  "OUTPUTEVENTS.csv.gz",
+  "PATIENTS.csv.gz",
+  "PRESCRIPTIONS.csv.gz",
+  "PROCEDUREEVENTS_MV.csv.gz",
+  "PROCEDURES_ICD.csv.gz",
+  "SERVICES.csv.gz",
+  "TRANSFERS.csv.gz")
+```
+
+```{r}
+for (i in 1:length(gzFileNames))
+{
+  filename <- gzFileNames[i]
+  downloadFile(paste0(URL, filename), path=rawDIR,
+               mode="wb", username=username, password=password, quiet=TRUE)
+}
+```
+
+## Get reference .gz md5sums
+
+```{r}
+refgzmd5sums <-
+  readLines("checksum_md5_zipped.txt") %>%
+  tibble()            %>%
+  mutate(filename=substr(., 35, nchar(.)), 
+         Refmd5sum=substr(., 1, 32))   %>%
+         select(-.)
+```
+
+## verify md5sums of .gz files
+
+```{r}
+gzmd5sums <-
+  data.frame( md5sum=md5sum( dir(rawDIR, full.names=TRUE) ) ) %>%
+  tibble::rownames_to_column(var="filename")                  %>%
+  mutate(filename=substr(filename,11,nchar(filename)))
+```
+
+match is OK if md5sum is same as the reference file
+
+```{r}
+gzmd5sumMatch <-
+  left_join(refgzmd5sums, gzmd5sums, by="filename") %>%
+  mutate(match=ifelse(Refmd5sum == md5sum, "OK", "MISMATCH"))
+
+gzmd5sumMatch    %>%
+  kable("html")  %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                full_width=FALSE, position="left")
+```
+
+## ungzip compressed files into data directory
+
+```{r}
+for (filename in dir(rawDIR))
+{
+  cat(filename, "\n")
+  gunzip(paste0(rawDIR, filename),
+         destname=paste0(dataDIR, substr(filename, 1, nchar(filename)-3)),
+         remove=FALSE)
+}
+```
+
+## Get reference .csv md5sums
+
+```{r}
+refcsvmd5sums <-
+  readLines("checksum_md5_unzipped.txt")   %>%
+  tibble()                                 %>%
+  mutate(filename=substr(., 35, nchar(.)),
+         Refmd5sum=substr(., 1, 32))       %>%
+         select(-.)
+```
+
+## verify md5sums of .csv files
+
+```{r}
+csvmd5sums <-
+  data.frame( md5sum=md5sum( dir(dataDIR, full.names=TRUE) ) ) %>%
+  tibble::rownames_to_column(var="filename")                   %>%
+  mutate(filename=substr(filename,12,nchar(filename)))
+```
+
+```{r}
+csvmd5sumMatch <-
+  left_join(refcsvmd5sums, csvmd5sums, by="filename") %>%
+  mutate(match=ifelse(Refmd5sum == md5sum, "OK", "MISMATCH"))
+
+csvmd5sumMatch    %>%
+  kable("html")   %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                full_width=FALSE, position="left")
+```
+
+```{r, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", sprintf("%.1f",
+                        as.numeric(difftime(time.2,
+                                            time.1, units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`

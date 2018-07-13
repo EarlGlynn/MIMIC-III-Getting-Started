@@ -1,0 +1,223 @@
+---
+title: "MIMIC-III Will Files Parse?"
+output: html_notebook
+---
+
+Check to see if records in MIMIC-III comma-separated value files parse to same number of tokens.
+
+The result of this exercise tells us the number of lines, records and fields in each file.
+
+efg | 2018-07-08
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+time.1 <- Sys.time()  
+```
+
+```{r}
+suppressPackageStartupMessages( library(dplyr) )   # select, group_by, ...
+library(kableExtra)  # kable_styling
+library(tibble)      # tibble
+```
+
+## Make list of .csv data files
+
+```{r}
+dataDIR <- "../../data/" 
+files <- list.files(dataDIR, full.names=TRUE)
+```
+
+## Count fields in each file
+
+```{r}
+summary <- tibble(Filename=substr(files, 12, nchar(files)),
+                  Lines=0,
+                  Records=0,
+                  Fields=0)
+```
+
+```{r}
+
+for (i in 1:length(files))
+{
+  cat(i, files[i], "\n") 
+  fieldCounts <- count.fields(files[i], sep=",", comment.char="", quote='"')
+  
+  frequency <- table(fieldCounts, useNA="ifany")
+  if (length(frequency) > 1)  # all should parse into same number of fields
+  {
+    print(frequency)
+  }
+  
+  summary$Lines[i]   <- length(fieldCounts)
+  summary$Records[i] <- frequency[1]   # get lucky for now that NA count is second
+  summary$Fields[i]  <- as.numeric(names(frequency)[1])
+}
+```
+
+NOTEEVENTS shows a curious problem with field counts with most being NA.  What does that mean?
+
+```{r}
+summary                                                                  %>%
+  kable("html", format.args=list(big.mark=","))                          %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left", full_width=FALSE)
+```
+
+Except for NOTEEVENTS, the lines count returned by *count.fields* matches the number of number of line feeds (x0A characters) from character counts.  
+
+Initially, it's unclear why info from *count.fields* suggests NOTEEVETNS has 91,692,309 lines (vs. the 91,691,299 line feeds from character count) with 2,083,181 logical records.
+
+Let's explore the reason for all the NAs in the field counts of NOTEEVENTS.
+
+The *?count.fields* help says:
+
+```
+Consistent with scan, count.fields allows quoted strings to contain newline characters. 
+In such a case the starting line will have the field count recorded as NA, and the ending 
+line will include the count of all fields from the beginning of the record.
+```
+Can we verify that lines are wrapping to get 11 fields in each record?
+
+```{r}
+fieldCounts <- count.fields("../../data/NOTEEVENTS.csv", sep=",", comment.char="", quote='"')
+frequency <- table(fieldCounts, useNA="ifany")
+frequency
+```
+
+The problem shows up in the first few records.  Oddly, the second *count.fields* non-NA value appears on line 31.  What's going on here?
+
+```{r}
+head(fieldCounts,31)
+```
+
+What do the first 32 lines look like?  Let's read all fields as character strings.
+
+```{r}
+s <- readLines("../../data/NOTEEVENTS.csv", n=32)
+s
+```
+R is adding a lot of quotes above, so let's use the command-line *head* command to see the "real" raw data ...
+
+```
+F:\MIMIC-III\data>head -31 NOTEEVENTS.csv
+"ROW_ID","SUBJECT_ID","HADM_ID","CHARTDATE","CHARTTIME","STORETIME","CATEGORY","DESCRIPTION","CGID","ISERROR","TEXT"
+174,22532,167853,2151-08-04,,,"Discharge summary","Report",,,"Admission Date:  [**2151-7-16**]       Discharge Date:  [**2151-8-4**]
+
+
+Service:
+ADDENDUM:
+
+RADIOLOGIC STUDIES:  Radiologic studies also included a chest
+CT, which confirmed cavitary lesions in the left lung apex
+consistent with infectious process/tuberculosis.  This also
+moderate-sized left pleural effusion.
+
+HEAD CT:  Head CT showed no intracranial hemorrhage or mass
+effect, but old infarction consistent with past medical
+history.
+
+ABDOMINAL CT:  Abdominal CT showed lesions of
+T10 and sacrum most likely secondary to osteoporosis. These can
+be followed by repeat imaging as an outpatient.
+
+
+
+                            [**First Name8 (NamePattern2) **] [**First Name4 (NamePattern1) 1775**] [**Last Name (NamePattern1) **], M.D.  [**MD Number(1) 1776*
+*]
+
+Dictated By:[**Hospital 1807**]
+MEDQUIST36
+
+D:  [**2151-8-5**]  12:11
+T:  [**2151-8-5**]  12:21
+JOB#:  [**Job Number 1808**]
+"
+```
+
+Not there is an "opening" quote on line two ("Admission ...) that is not closed until the final quote on line 31.  This wrapped, multi-line field is a single TEXT field with a report.
+
+This report gives clues about how the original information was de-identified for public release.
+
+Let's read the first two **logical** records into a data.frame ...
+
+```{r}
+d <- read.csv("../../data/NOTEEVENTS.csv", colClasses="character", nrows=1)
+```
+
+```{r}
+d                    %>%                                                
+  kable("html")      %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left", full_width=TRUE)
+```
+
+
+```{r}
+str(d)
+```
+
+The file consists of many multi-line logical records.  Can we justify the count of 2,083,181 records with 11 fields each?
+
+Can we load the whole 3.7 GB NOTEEVENTS.csv into memory using R with 32 GB memory?  Yes!
+
+Let's use the readr function *read_csv*, which should be more efficient thant *read.csv*.
+
+```{r}
+library(readr)
+d <- read_csv("../../data/NOTEEVENTS.csv", progress=FALSE)
+dim(d)
+```
+
+The CATEGORY variable seems to be defined in all records:
+
+```{r}
+counts <- 
+  d                   %>%
+  group_by(CATEGORY)  %>%
+  summarize(n=n())
+```
+
+```{r}
+counts                                                                    %>%
+   kable("html", format.args=list(big.mark=","))                          %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left", full_width=FALSE)
+```
+
+
+The total is about what is expected:
+
+```{r}
+sum(counts$n)
+```
+
+*read_csv* found 2,083,180 logical records of 11 fields.  The original count was one more because of the header row.  
+
+We conclude there are 2,083,180 NOTEEVENT records with 11 fields, and parsing the MIMIC-III files should not be a problem (as long as multi-line records are allowed).
+
+How variable is the length of the TEXT fields?
+
+```{r}
+fivenum(nchar(d$TEXT))
+```
+
+The distribution is a bit skewed, and pehaps multi-modal, which is shown by the density plot.  Perhaps there are different kinds of TEXT reports based on length alone?
+
+Log scaling is used to make the skewed distribution a bit more "log normal".
+
+```{r}
+plot(density(log10(nchar(d$TEXT))), col="blue", xlab="log10(TEXT length)")
+grid()
+```
+
+
+```{r, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", sprintf("%.1f",
+                        as.numeric(difftime(time.2,
+                                            time.1, units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`    
