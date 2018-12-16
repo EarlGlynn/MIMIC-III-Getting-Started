@@ -1,0 +1,282 @@
+---
+title: "R Notebook"
+output: 
+  html_document:
+    toc: yes
+  html_notebook:
+    theme: united
+    toc: yes
+---
+
+Notes from following online instructions [Installing MIMIC-III in a local Postgres database on Windows](https://mimic.physionet.org/tutorials/install-mimic-locally-windows/).
+
+## Install PostgreSQL
+
+## Run SQL shell (psql)
+
+```
+psql (10.4)
+WARNING: Console code page (437) differs from Windows code page (1252)
+         8-bit characters might not work correctly. See psql reference
+         page "Notes for Windows users" for details.
+Type "help" for help.
+```
+
+```
+postgres=# DROP DATABASE IF EXISTS mimic;
+NOTICE:  database "mimic" does not exist, skipping
+DROP DATABASE
+postgres=# CREATE DATABASE mimic OWNER postgres;
+CREATE DATABASE
+postgres=# \c mimic;
+WARNING: Console code page (437) differs from Windows code page (1252)
+         8-bit characters might not work correctly. See psql reference
+         page "Notes for Windows users" for details.
+```
+
+```
+\c mimic;
+```
+
+```
+You are now connected to database "mimic" as user "postgres".
+```
+
+## Create Schema and Tables
+
+```
+mimic=# CREATE SCHEMA mimiciii;
+```
+
+```
+mimic=# set search_path to mimiciii;
+```
+
+```
+mimic-# \i C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql
+```
+
+```
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:29: NOTICE:  table "admissions" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:59: NOTICE:  table "callout" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:93: NOTICE:  table "caregivers" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:108: NOTICE:  table "chartevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE TRIGGER
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:189: NOTICE:  table "cptevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:211: NOTICE:  table "datetimeevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:235: NOTICE:  table "diagnoses_icd" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:250: NOTICE:  table "drgcodes" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:268: NOTICE:  table "d_cpt" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:288: NOTICE:  table "d_icd_diagnoses" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:303: NOTICE:  table "d_icd_procedures" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:318: NOTICE:  table "d_items" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:339: NOTICE:  table "d_labitems" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:356: NOTICE:  table "icustays" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:379: NOTICE:  table "inputevents_cv" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:411: NOTICE:  table "inputevents_mv" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:452: NOTICE:  table "labevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:471: NOTICE:  table "microbiologyevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:497: NOTICE:  table "noteevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:518: NOTICE:  table "outputevents" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:541: NOTICE:  table "patients" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:560: NOTICE:  table "prescriptions" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:589: NOTICE:  table "procedureevents_mv" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:624: NOTICE:  table "procedures_icd" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:639: NOTICE:  table "services" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_create_tables.sql:655: NOTICE:  table "transfers" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+```
+
+## Load Data
+
+```
+mimic-# \set ON_ERROR_STOP 1
+```
+
+```
+mimic-# \set mimic_data_dir 'C:/MIMIC-III/data'
+```
+
+```
+mimic-# \i C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_load_data.sql
+````
+
+```
+COPY 58976
+COPY 34499
+COPY 7567
+COPY 0
+COPY 573146
+COPY 4485937
+COPY 651047
+COPY 125557
+COPY 134
+COPY 14567
+COPY 3882
+COPY 12487
+COPY 753
+COPY 61532
+COPY 17527935
+COPY 3618991
+COPY 27854055
+COPY 631726
+COPY 2083180
+COPY 4349218
+COPY 46520
+COPY 4156450
+COPY 258066
+COPY 240095
+COPY 73343
+COPY 261897
+```
+## Add Indexes
+
+```
+mimic-# \i C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_add_indexes.sql
+```
+
+```
+. . . 
+CREATE INDEX
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_add_indexes.sql:961: NOTICE:  index "transfers_idx01" does not exist, skipping
+DROP INDEX
+CREATE INDEX
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_add_indexes.sql:965: NOTICE:  index "transfers_idx02" does not exist, skipping
+DROP INDEX
+CREATE INDEX
+psql:C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_add_indexes.sql:969: NOTICE:  index "transfers_idx03" does not exist, skipping
+DROP INDEX
+CREATE INDEX
+```
+
+## Test the build
+
+```
+mimic=# select
+mimic-#   icustay_id, intime, outtime
+mimic-# from icustays
+mimic-# limit 10;
+ icustay_id |       intime        |       outtime
+------------+---------------------+---------------------
+     280836 | 2198-02-14 23:27:38 | 2198-02-18 05:26:11
+     206613 | 2170-11-05 11:05:29 | 2170-11-08 17:46:57
+     220345 | 2128-06-24 15:05:20 | 2128-06-27 12:32:29
+     249196 | 2120-08-07 23:12:42 | 2120-08-10 00:39:04
+     210407 | 2186-12-25 21:08:04 | 2186-12-27 12:01:13
+     241507 | 2141-04-19 06:12:05 | 2141-04-20 17:52:11
+     254851 | 2114-06-28 22:28:44 | 2114-07-07 18:01:16
+     219649 | 2170-10-07 11:28:53 | 2170-10-14 14:38:07
+     206327 | 2147-11-20 09:02:23 | 2147-11-21 17:08:52
+     272866 | 2132-10-21 21:11:46 | 2132-10-22 14:44:48
+(10 rows)
+```
+
+```
+\i C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_checks.sql
+```
+
+```
+        tbl         | expected_count | observed_count | row_count_check
+--------------------+----------------+----------------+-----------------
+ admissions         |          58976 |          58976 | PASSED
+ callout            |          34499 |          34499 | PASSED
+ caregivers         |           7567 |           7567 | PASSED
+ chartevents        |      330712483 |      330712483 | PASSED
+ cptevents          |         573146 |         573146 | PASSED
+ d_cpt              |            134 |            134 | PASSED
+ d_icd_diagnoses    |          14567 |          14567 | PASSED
+ d_icd_procedures   |           3882 |           3882 | PASSED
+ d_items            |          12487 |          12487 | PASSED
+ d_labitems         |            753 |            753 | PASSED
+ datetimeevents     |        4485937 |        4485937 | PASSED
+ diagnoses_icd      |         651047 |         651047 | PASSED
+ drgcodes           |         125557 |         125557 | PASSED
+ icustays           |          61532 |          61532 | PASSED
+ inputevents_cv     |       17527935 |       17527935 | PASSED
+ inputevents_mv     |        3618991 |        3618991 | PASSED
+ labevents          |       27854055 |       27854055 | PASSED
+ microbiologyevents |         631726 |         631726 | PASSED
+ noteevents         |        2083180 |        2083180 | PASSED
+ outputevents       |        4349218 |        4349218 | PASSED
+ patients           |          46520 |          46520 | PASSED
+ prescriptions      |        4156450 |        4156450 | PASSED
+ procedureevents_mv |         258066 |         258066 | PASSED
+ procedures_icd     |         240095 |         240095 | PASSED
+ services           |          73343 |          73343 | PASSED
+ transfers          |         261897 |         261897 | PASSED
+(26 rows)
+```
+## Add Comments
+
+```
+\i C:/MIMIC-III/mimic-code-master/buildmimic/postgres/postgres_add_comments.sql
+```
