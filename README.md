@@ -19,4 +19,4 @@ Johnson AEW, Pollard TJ, et al,
 The latest version of MIMIC in late 2018 is [**MIMIC-III v1.4**](https://mimic.physionet.org/gettingstarted/access/), which comprises over 58,000 hospital admissions for 38,645 adults and 7,875 neonates. The data spans June 2001 - October 2012.
 All examples in this repository use v1.4.
 
-An updated version of MIMIC is expected in 2019.
+An updated version of MIMIC is [xpected in 2019](https://github.com/MIT-LCP/mimic-code/issues/491).
