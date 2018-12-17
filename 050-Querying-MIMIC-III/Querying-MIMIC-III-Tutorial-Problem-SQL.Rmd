@@ -1,0 +1,364 @@
+---
+title: "Querying MIMIC-III -- Tutorial Problem -- SQL"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+---
+
+efg | 2018-09-21 | Updated 2018-12-16.
+
+# Overview
+
+The purpose of this RStudio notebook is to reproduce the SQL "Tutorial Problem" from [Querying MIMIC-III](https://mimic.physionet.org/tutorials/intro-to-mimic-iii/), Section 8.  Unfortuantely, the online source shows SQL code but does not show the “correct” answers, so a definitive conclusion that this all matches is not possible.
+
+The examples from Section 3 “Patient numbers” through Section 7 “Services are in a separate notebook.
+
+**An equivalent Tidyverse example shows roughly the same steps using RStudio notebooks and dplyr/dbplyr for data manipulation instead of SQL.**  This enables a direct comparison between solving the problem using SQL and dplyr/dbplyr.
+
+Many of the comments below are from the source above.
+
+SQL statements were lightly edited for readability in the SQL program "chunks".  The output of each SQL statement was directed to the variable `output.var` in the SQL chunk definition to document the dimensions of the returned results.  `output.var` results could be displayed or manipulated in any way.
+
+Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(cli.unicode = FALSE)
+time.1 <- Sys.time()
+```
+
+# Setup
+
+```{r, comment=NA}
+library(DBI)
+library(RPostgres)
+```
+
+```{r}
+MimicDB <- dbConnect(RPostgres::Postgres(), 
+                     host     = "localhost",
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     bigint   = "numeric",   # See RBloggers 2018-03-16 posting
+                     options  = "-c search_path=mimiciii")
+```
+
+# Querying MIMIC-III
+
+## 8. Tutorial problem
+
+How would you gather useful information about patients admitted to the ICU? The problem can be broken down into several parts:
+
+### Step 1
+
+First start with retrieving `subject_id`, `hadm_id`, `icustay_id`, `intime`, and `outtime` from the `icustays` table.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime
+FROM   
+  icustays ie
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 2
+
+Using the patients table retrieve the calculated age of patients.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age
+FROM   
+  icustays ie
+
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id;
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 3
+
+Separate neonates from adult patients.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime,
+  
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age,
+  
+  CASE
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
+    THEN 'neonate'
+    
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
+    THEN 'middle'
+    
+    -- all ages > 89 in the database were replaced with 300
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
+    then '>89'
+    
+    ELSE 'adult'
+  END AS ICUSTAY_AGE_GROUP
+  
+FROM 
+  icustays ie
+
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 4
+
+By incorporating the admissions table, find how long each stay was BEFORE the patients were admitted to the ICU.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime,
+  
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age,
+  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) as preiculos,
+  
+  CASE
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
+    THEN 'neonate'
+    
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
+    THEN 'middle'
+    
+    -- all ages > 89 in the database were replaced with 300
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
+    THEN '>89'
+    
+    ELSE 'adult'
+  END AS ICUSTAY_AGE_GROUP
+        
+FROM 
+  icustays ie
+  
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id
+  
+  INNER JOIN admissions adm
+  ON ie.hadm_id = adm.hadm_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 5
+
+Next find the date of the patient’s death if applicable.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime, 
+  adm.deathtime,
+  
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age,
+  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  
+  CASE
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
+    THEN 'neonate'
+    
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
+    THEN 'middle'
+    
+    -- all ages > 89 in the database were replaced with 300
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
+    THEN '>89'
+    
+    ELSE 'adult'
+  END AS ICUSTAY_AGE_GROUP
+      
+FROM 
+  icustays ie
+  
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id
+  
+  INNER JOIN admissions adm
+  ON ie.hadm_id = adm.hadm_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 6
+
+Then find those deaths that occurred while the patients were in the hospital.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime, 
+  adm.deathtime,
+    
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) AS age,
+  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  
+  CASE
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
+    THEN 'neonate'
+      
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
+    THEN 'middle'
+      
+    -- all ages > 89 in the database were replaced with 300
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
+    THEN '>89'
+      
+    ELSE 'adult'
+  END AS ICUSTAY_AGE_GROUP,
+      
+  -- note that there is already a "hospital_expire_flag" field in the admissions table which you could use
+  CASE
+    WHEN adm.hospital_expire_flag = 1 
+    THEN 'Y'
+    
+    ELSE 'N'
+  END AS hospital_expire_flag
+    
+FROM 
+  icustays ie
+  
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id
+  
+  INNER JOIN admissions adm
+  ON ie.hadm_id = adm.hadm_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+### Step 7
+
+Find how many of those deaths occurred within the ICU.
+
+```{sql, connection=MimicDB, output.var="SQLresults"}
+SELECT 
+  ie.subject_id, 
+  ie.hadm_id, 
+  ie.icustay_id,
+  ie.intime, 
+  ie.outtime, 
+  adm.deathtime,
+    
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) AS age,
+  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  
+  CASE
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
+    THEN 'neonate'
+    
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
+    THEN 'middle'
+    
+    -- all ages > 89 in the database were replaced with 300
+    WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
+    THEN '>89'
+    
+    ELSE 'adult'
+  END AS ICUSTAY_AGE_GROUP,
+
+  -- note that there is already a "hospital_expire_flag" field in the admissions table which you could use
+  CASE
+    WHEN adm.hospital_expire_flag = 1 
+    THEN 'Y'           
+    ELSE 'N'
+  END AS hospital_expire_flag,
+
+  -- note also that hospital_expire_flag is equivalent to "Is adm.deathtime not null?"
+  CASE
+    WHEN adm.deathtime BETWEEN ie.intime and ie.outtime
+    THEN 'Y'
+    
+    -- sometimes there are typographical errors in the death date, so check before intime
+    WHEN adm.deathtime <= ie.intime
+    THEN 'Y'
+    
+    WHEN adm.dischtime          <= ie.outtime     AND
+         adm.discharge_location  = 'DEAD/EXPIRED'
+    THEN 'Y'
+    
+    ELSE 'N'
+  END AS ICUSTAY_EXPIRE_FLAG
+
+FROM 
+  icustays ie
+
+  INNER JOIN patients pat
+  ON ie.subject_id = pat.subject_id
+  
+  INNER JOIN admissions adm
+  ON ie.hadm_id = adm.hadm_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+head(SQLresults)
+```
+
+# Close database
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+```{r, comment=NA, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", 
+                        sprintf("%.1f",
+                                as.numeric(difftime(time.2, time.1,
+                                                    units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`

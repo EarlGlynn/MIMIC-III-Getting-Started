@@ -1,0 +1,230 @@
+---
+title: "Initial look at MIMIC-III Using RPostgres"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+---
+
+efg | 2018-09-21 | Updated 2018-12-16.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(cli.unicode = FALSE)
+time.1 <- Sys.time()
+```
+
+## RPostgres package background
+
+Hadley Wickham's 2018-01-08 [tweet about RPostgres package](https://twitter.com/hadleywickham/status/950378112759541761?lang=en).
+
+*If you currently use RPostgreSQL or RMySQL, check out RPostgres*
+
+[RPostgres page on GitHub](https://github.com/r-dbi/RPostgres)
+
+*RPostgres is an DBI-compliant interface to the postgres database. It's a ground-up rewrite using C++ and Rcpp.*
+
+R-bloggers 2018-03-16 posting:  [Take Care If Trying the RPostgres Package](https://www.r-bloggers.com/take-care-if-trying-the-rpostgres-package/).
+
+*Take care if trying the new RPostgres database connection package. By default it returns some non-standard types that code developed against other database drivers may not expect, and may not be ready to defend against.*
+
+*The work-around is: add the argument bigint = "numeric" to your dbConnect() call.*
+
+This fix may be needed to knit documents when using RPostgres.  See [this RStudio Community posting](https://community.rstudio.com/t/rpostgres-query-works-interactively-in-notebook-but-will-not-knit/14858/4).
+
+Yi Tang's [Compare RPostgres and RPostgreSQL Package](http://blog.yitang.uk/2016/04/14/compare-rpostgres-and-rpostgresql-package/), 2018-04-14.
+
+*Based on my testing, the RPostgres package is about 30% faster than RPostgreSQL.*
+
+[Package RPostgres](https://cran.r-project.org/web/packages/RPostgres/RPostgres.pdf), 2018-05-06
+
+## Setup
+
+```{r, comment=NA}
+library(DBI)
+library(RPostgres)
+library(tidyverse)
+library(dbplyr, warn.conflicts=FALSE)
+library(kableExtra)
+```
+
+## Open MIMIC database
+
+```{r}
+MimicDB <- dbConnect(RPostgres::Postgres(), 
+                     host     = "localhost",
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     bigint   = "numeric",   # See RBloggers 2018-03-16 posting
+                     options  = "-c search_path=mimiciii")
+```
+
+`MIMIC_User` and `MIMIC_Password` are defined in `.Renviron` file located in default `getwd()` directory.  This allows definition of `MIMIC_User` and `MIMIC_Password` in a single location, while referenced in many files.
+
+## List of MIMIC-III Tables
+
+```{r, comment=NA}
+dbListTables(MimicDB)
+```
+
+## List of fields in a table
+
+```{r, comment=NA}
+dbListFields(MimicDB, "d_cpt")
+```
+
+## Read Table
+
+```{r, comment=NA}
+cptInfo <- dbReadTable(MimicDB, "d_cpt")
+
+dim(cptInfo)
+```
+
+```{r,  comment=NA}
+cptInfo          %>% 
+  head(5)        %>%
+  kable("html")  %>%
+  kable_styling(position="left", full_width=FALSE, font_size=10,
+                bootstrap_options=c("striped", "bordered", "condensed"))
+```
+
+## Sample Query
+
+### dbGetQuery
+
+```{r, comment=NA}
+sqlQuery <- "select icustay_id, intime, outtime from icustays limit 5"
+
+icuStaysInfo <- dbGetQuery(MimicDB, sqlQuery)
+icuStaysInfo 
+```
+
+### SQL code chunk
+
+    {sql, connection=MimicDB, output.var="saveSQLInfo"}
+
+```{sql, connection=MimicDB, output.var="saveSQLInfo"}
+SELECT icustay_id, intime, outtime
+FROM   icustays
+LIMIT  5
+```
+
+```{r, comment=NA}
+saveSQLInfo
+```
+
+### dbplyr
+
+Use table name by convention for table reference name.
+
+```{r, comment=NA}
+icustays <- tbl(MimicDB, in_schema("mimiciii", "icustays"))
+```
+
+Use table reference like tibble with dplyr.
+
+```{r, comment=NA}
+icustays                               %>%
+  select(icustay_id, intime, outtime)  %>%
+  head(5)                              %>%
+  collect()
+```
+
+`collect()` above forces query to be performed by database with result returned as tibble.
+
+```{r, comment=NA}
+icustays                               %>%
+  select(icustay_id, intime, outtime)  %>%
+  head(5)                             
+```
+
+Without `collect()` result is "lazy query" that is only performed since display is required.
+
+View the dbplyr database query without execution:
+
+```{r, comment=NA}
+icustays                               %>%
+  select(icustay_id, intime, outtime)  %>%
+  head(5)                              %>%
+  show_query()
+```
+
+## Use dplyr summarize
+
+Table reference 
+
+```{r, comment=NA}
+d_cpt <- tbl(MimicDB, in_schema("mimiciii", "d_cpt"))
+```
+
+whole table
+
+```{r, comment=NA}
+d_cpt %>%
+  summarize(n = n())
+```
+
+For simple counts, `count()` or `tally()` can be used above, but `summarize` offers many other options.
+
+group_by counts
+
+```{r, comment=NA}
+counts <- 
+  d_cpt                    %>% 
+  group_by(sectionheader)  %>%
+  summarize(n = n())       
+
+counts
+```
+
+knitr HTML rendered without `bigint = "numeric"` in dbConnect
+
+```
+# Source:   lazy query [?? x 2]
+# Database: postgres [postgres@localhost:5432/mimic]
+  sectionheader             n              
+  <chr>                     <S3: integer64>
+1 Pathology and laboratory  18             
+2 Medicine                  32             
+3 Anesthesia                22             
+4 Radiology                 " 7"           
+5 Evaluation and management 25             
+6 Emerging technology       " 2"           
+7 Surgery                   19             
+8 Performance measurement   " 9"      
+```
+
+```{r, comment=NA}
+d_cpt                      %>% 
+  group_by(sectionheader)  %>%
+  summarize(n = n())       %>%
+  show_query()
+```
+
+## Close database
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+## sessionInfo
+
+```{r}
+sessionInfo()
+```
+
+*****
+
+```{r, comment=NA, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", 
+                        sprintf("%.1f",
+                                as.numeric(difftime(time.2, time.1,
+                                                    units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`
