@@ -42,7 +42,7 @@ MimicDB <- dbConnect(RPostgres::Postgres(),
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "numeric",   # See RBloggers 2018-03-16 posting
+                     bigint   = "integer",   # See RBloggers 2018-03-16 posting
                      options  = "-c search_path=mimiciii")
 ```
 

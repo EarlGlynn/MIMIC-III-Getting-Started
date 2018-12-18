@@ -154,6 +154,7 @@ $(document).ready(function () {
 <p>R-bloggers 2018-03-16 posting: <a href="https://www.r-bloggers.com/take-care-if-trying-the-rpostgres-package/">Take Care If Trying the RPostgres Package</a>.</p>
 <p><em>Take care if trying the new RPostgres database connection package. By default it returns some non-standard types that code developed against other database drivers may not expect, and may not be ready to defend against.</em></p>
 <p><em>The work-around is: add the argument bigint = “numeric” to your dbConnect() call.</em></p>
+<p>Since all <a href="https://mit-lcp.github.io/mimic-schema-spy/columns.byTable.html">MIMIC-III keys are int4</a> values, we’ll use bigint = “integer”.</p>
 <p>This fix may be needed to knit documents when using RPostgres. See <a href="https://community.rstudio.com/t/rpostgres-query-works-interactively-in-notebook-but-will-not-knit/14858/4">this RStudio Community posting</a>.</p>
 <p>Yi Tang’s <a href="http://blog.yitang.uk/2016/04/14/compare-rpostgres-and-rpostgresql-package/">Compare RPostgres and RPostgreSQL Package</a>, 2018-04-14.</p>
 <p><em>Based on my testing, the RPostgres package is about 30% faster than RPostgreSQL.</em></p>
@@ -164,12 +165,12 @@ $(document).ready(function () {
 <pre class="r"><code>library(DBI)
 library(RPostgres)
 library(tidyverse)</code></pre>
-<pre><code>-- Attaching packages ------------------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>-- Attaching packages ------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>v ggplot2 3.1.0     v purrr   0.2.5
 v tibble  1.4.2     v dplyr   0.7.7
 v tidyr   0.8.2     v stringr 1.3.1
 v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>-- Conflicts ---------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>-- Conflicts ---------------------------------------------------------------- tidyverse_conflicts() --
 x dplyr::filter() masks stats::filter()
 x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(dbplyr, warn.conflicts=FALSE)
@@ -182,7 +183,7 @@ library(kableExtra)</code></pre>
                      dbname   = &quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
                      password = Sys.getenv(&quot;MIMIC_Password&quot;),
-                     bigint   = &quot;numeric&quot;,   # See RBloggers 2018-03-16 posting
+                     bigint   = &quot;integer&quot;,   # See RBloggers 2018-03-16 posting
                      options  = &quot;-c search_path=mimiciii&quot;)</code></pre>
 <p><code>MIMIC_User</code> and <code>MIMIC_Password</code> are defined in <code>.Renviron</code> file located in default <code>getwd()</code> directory. This allows definition of <code>MIMIC_User</code> and <code>MIMIC_Password</code> in a single location, while referenced in many files.</p>
 </div>
@@ -485,7 +486,7 @@ LIMIT 5</code></pre>
 <pre><code># Source:   lazy query [?? x 1]
 # Database: postgres [postgres@localhost:5432/mimic]
       n
-  &lt;dbl&gt;
+  &lt;int&gt;
 1   134</code></pre>
 <p>For simple counts, <code>count()</code> or <code>tally()</code> can be used above, but <code>summarize</code> offers many other options.</p>
 <p>group_by counts</p>
@@ -498,7 +499,7 @@ counts</code></pre>
 <pre><code># Source:   lazy query [?? x 2]
 # Database: postgres [postgres@localhost:5432/mimic]
   sectionheader                 n
-  &lt;chr&gt;                     &lt;dbl&gt;
+  &lt;chr&gt;                     &lt;int&gt;
 1 Pathology and laboratory     18
 2 Medicine                     32
 3 Anesthesia                   22
@@ -507,7 +508,7 @@ counts</code></pre>
 6 Emerging technology           2
 7 Surgery                      19
 8 Performance measurement       9</code></pre>
-<p>knitr HTML rendered without <code>bigint = &quot;numeric&quot;</code> in dbConnect</p>
+<p>knitr HTML rendered WITHOUT <code>bigint = &quot;integer&quot;</code> in dbConnect:</p>
 <pre><code># Source:   lazy query [?? x 2]
 # Database: postgres [postgres@localhost:5432/mimic]
   sectionheader             n              
@@ -579,7 +580,7 @@ GROUP BY &quot;sectionheader&quot;</code></pre>
 ## [52] nlme_3.1-137      compiler_3.5.1</code></pre>
 <hr />
 <p>Processing time: 2.4 secs</p>
-<p>2018-12-16 2021</p>
+<p>2018-12-17 2005</p>
 </div>
 
 

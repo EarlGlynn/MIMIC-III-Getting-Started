@@ -31,6 +31,8 @@ R-bloggers 2018-03-16 posting:  [Take Care If Trying the RPostgres Package](http
 
 *The work-around is: add the argument bigint = "numeric" to your dbConnect() call.*
 
+Since all [MIMIC-III keys are int4](https://mit-lcp.github.io/mimic-schema-spy/columns.byTable.html) values, we'll use bigint = "integer".
+
 This fix may be needed to knit documents when using RPostgres.  See [this RStudio Community posting](https://community.rstudio.com/t/rpostgres-query-works-interactively-in-notebook-but-will-not-knit/14858/4).
 
 Yi Tang's [Compare RPostgres and RPostgreSQL Package](http://blog.yitang.uk/2016/04/14/compare-rpostgres-and-rpostgresql-package/), 2018-04-14.
@@ -57,7 +59,7 @@ MimicDB <- dbConnect(RPostgres::Postgres(),
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "numeric",   # See RBloggers 2018-03-16 posting
+                     bigint   = "integer",   # See RBloggers 2018-03-16 posting
                      options  = "-c search_path=mimiciii")
 ```
 
@@ -180,7 +182,7 @@ counts <-
 counts
 ```
 
-knitr HTML rendered without `bigint = "numeric"` in dbConnect
+knitr HTML rendered WITHOUT `bigint = "integer"` in dbConnect:
 
 ```
 # Source:   lazy query [?? x 2]

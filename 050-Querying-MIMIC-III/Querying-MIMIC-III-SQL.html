@@ -175,7 +175,7 @@ library(dbplyr, warn.conflicts = FALSE)</code></pre>
                      dbname   = &quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
                      password = Sys.getenv(&quot;MIMIC_Password&quot;),
-                     bigint   = &quot;numeric&quot;,   # See RBloggers 2018-03-16 posting
+                     bigint   = &quot;integer&quot;,   # See RBloggers 2018-03-16 posting
                      options  = &quot;-c search_path=mimiciii&quot;)</code></pre>
 </div>
 <div id="querying-mimic-iii" class="section level1">
@@ -860,8 +860,8 @@ WHERE  HADM_ID = 112213</code></pre>
 <div id="close-database" class="section level1">
 <h1>Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
-<p>Processing time: 1.4 secs</p>
-<p>2018-12-16 2047</p>
+<p>Processing time: 1.5 secs</p>
+<p>2018-12-17 2007</p>
 </div>
 
 
