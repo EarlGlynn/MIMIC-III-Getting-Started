@@ -1,0 +1,130 @@
+---
+title: "MIMIC-III First Look -- RPostgreSQL package"
+output:
+  html_document:
+    toc: yes
+    number_sections: true
+  html_notebook:
+    toc: yes            
+---
+
+efg | 2018-08-12 | Updated 2018-12-23.
+
+Summary:  RPostgreSQL CORRECTLY shows dates back to 1800, but DOES NOT ALLOW execution of Postgres SQL chunks in RStudio.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(cli.unicode = FALSE)
+time.1 <- Sys.time()
+```                                 
+
+# Setup
+
+## Packages
+
+```{r}
+library(DBI)
+library(RPostgreSQL)
+library(dbplyr, warn.conflicts=FALSE)    
+library(tidyverse)
+library(kableExtra)
+```
+
+## Helper function
+
+Common formatting mostly for data.frames/tibbles below
+
+```{r}
+Show <- function(data)
+{
+  data            %>%
+  kable("html")   %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "condensed"),
+                position = "left", full_width = FALSE, font_size=10)
+}
+```        
+
+# Open mimic database with RPostgreSQL
+
+```{r}
+MimicDB <- dbConnect(PostgreSQL(), 
+                     dbname="mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"))
+dbListTables(MimicDB) 
+```
+
+# Admissions Table
+
+```{r}
+admissions <- tbl(MimicDB, in_schema("mimiciii", "admissions"))
+```
+
+```{r}
+admissions %>% 
+  head(5)  %>%
+  Show()
+```
+
+```{r}
+admissions                                %>%
+  group_by(admission_type)                %>%
+  count()                                 %>%
+  Show()
+```
+
+```{r}
+admissions                                %>%
+  group_by(insurance)                     %>%
+  count()                                 %>%
+  Show()
+```
+
+```{r}
+admissions                     %>%
+  group_by(admission_location) %>%
+  count()                      %>%
+  Show()
+```
+
+# Patients Table
+
+```{r}
+patients <- tbl(MimicDB, in_schema("mimiciii", "patients"))
+```
+
+```{r}
+patients                  %>%
+  arrange(dob)            %>%
+  head(5)                 %>%
+  collect()               %>%
+  Show()
+```
+
+Note DOB fields above go back to 1800 and display correctly.
+
+SQL chunk below does not work with RPostgreSQL package.
+
+```
+SELECT subject_id, dob, cast(dob as date) AS dobDate
+FROM   patients
+ORDER BY dob
+LIMIT 5
+```
+
+# Close database
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+```{r, comment=NA, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:",
+                        sprintf("%.1f",
+                                as.numeric(difftime(time.2, time.1,
+                                                    units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`                
