@@ -10,7 +10,7 @@ output:
 
 efg | 2018-08-12 | Updated 2018-12-23.
 
-Summary:  odbc CORRECTLY shows dates back to 1800, but DOES NOT ALLOW execution of Postgres SQL chunks in RStudio.
+Summary:  odbc CORRECTLY shows dates back to 1800.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -49,7 +49,7 @@ Show <- function(data)
 }
 ```        
 
-# Open database with RPostgres
+# Open database with odbc
 
 ```{r}
 MimicDB <- dbConnect(odbc::odbc(),
@@ -57,8 +57,7 @@ MimicDB <- dbConnect(odbc::odbc(),
                      database = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "integer",
-                     options  = "-c search_path=mimiciii")
+                     bigint   = "integer")
 dbListTables(MimicDB) 
 ```
 
@@ -111,14 +110,19 @@ patients                  %>%
 
 Note DOB fields above go back to 1800, which are correctly shown above.
 
-SQL chunk below DOES NOT work with odbc package.
+SQL chunk below shows the same results.
 
-```
-SELECT subject_id, dob, cast(dob as date) AS dobDate
-FROM   patients
+```{sql, connection=MimicDB, output.var="SQLchunkOutput"}
+SELECT *
+FROM   mimiciii.patients
 ORDER BY dob
 LIMIT 5
 ```
+
+```{r}
+SQLchunkOutput %>% Show()
+```
+
 
 # Close database
 

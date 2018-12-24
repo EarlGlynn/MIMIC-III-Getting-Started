@@ -10,7 +10,7 @@ output:
 
 efg | 2018-08-12 | Updated 2018-12-23.
 
-Summary:  RPostgreSQL CORRECTLY shows dates back to 1800, but DOES NOT ALLOW execution of Postgres SQL chunks in RStudio.
+Summary:  RPostgreSQL CORRECTLY shows dates back to 1800.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -103,13 +103,17 @@ patients                  %>%
 
 Note DOB fields above go back to 1800 and display correctly.
 
-SQL chunk below does not work with RPostgreSQL package.
+SQL chunk gives the same results.
 
-```
-SELECT subject_id, dob, cast(dob as date) AS dobDate
-FROM   patients
+```{sql, connection=MimicDB, output.var="SQLchunkOutput"}
+SELECT *
+FROM   mimiciii.patients
 ORDER BY dob
 LIMIT 5
+```
+
+```{r}
+SQLchunkOutput %>% Show()
 ```
 
 # Close database

@@ -10,7 +10,7 @@ output:
 
 efg | 2018-08-12 | Updated 2018-12-23.
 
-Summary:  RPostgres DOES NOT correctly show dates back to 1800 (only to 1969), but ALLOWS execution of SQL chunks.
+Summary:  RPostgres DOES NOT correctly show dates back to 1800 (only to 1969).
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -107,6 +107,19 @@ patients                  %>%
 Note DOB fields above go back to 1800, but result INCORRECTLY shows 1969.
 
 SQL chunk below DOES work with RPostgres package, but INCORRECTLY shows 1969 in dob fields.
+
+```{sql, connection=MimicDB, output.var="SQLchunkOutput"}
+SELECT *
+FROM   patients
+ORDER BY dob
+LIMIT 5
+```
+
+```{r}
+SQLchunkOutput %>% Show()
+```
+
+Oddly, the cast below reveals the 1969 years are really 1800.
 
 ```{sql, connection=MimicDB, output.var="SQLchunkOutput"}
 SELECT subject_id, dob, cast(dob as date) AS dobDate

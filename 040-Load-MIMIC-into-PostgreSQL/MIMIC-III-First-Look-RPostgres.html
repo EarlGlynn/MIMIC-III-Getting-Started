@@ -139,7 +139,7 @@ $(document).ready(function () {
 </div>
 
 <p>efg | 2018-08-12 | Updated 2018-12-23.</p>
-<p>Summary: RPostgres DOES NOT correctly show dates back to 1800 (only to 1969), but ALLOWS execution of SQL chunks.</p>
+<p>Summary: RPostgres DOES NOT correctly show dates back to 1800 (only to 1969).</p>
 <div id="setup" class="section level1">
 <h1><span class="header-section-number">1</span> Setup</h1>
 <div id="packages" class="section level2">
@@ -148,12 +148,12 @@ $(document).ready(function () {
 library(RPostgres)
 library(dbplyr, warn.conflicts=FALSE)    
 library(tidyverse)</code></pre>
-<pre><code>## -- Attaching packages -------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>## -- Attaching packages ----------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>## v ggplot2 3.1.0     v purrr   0.2.5
 ## v tibble  1.4.2     v dplyr   0.7.7
 ## v tidyr   0.8.2     v stringr 1.3.1
 ## v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>## -- Conflicts ----------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>## -- Conflicts -------------------------------------------------------------------------------- tidyverse_conflicts() --
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::ident()  masks dbplyr::ident()
 ## x dplyr::lag()    masks stats::lag()
@@ -935,6 +935,174 @@ NA
 </table>
 <p>Note DOB fields above go back to 1800, but result INCORRECTLY shows 1969.</p>
 <p>SQL chunk below DOES work with RPostgres package, but INCORRECTLY shows 1969 in dob fields.</p>
+<pre class="sql"><code>SELECT *
+FROM   patients
+ORDER BY dob
+LIMIT 5</code></pre>
+<pre class="r"><code>SQLchunkOutput %&gt;% Show()</code></pre>
+<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<thead>
+<tr>
+<th style="text-align:right;">
+row_id
+</th>
+<th style="text-align:right;">
+subject_id
+</th>
+<th style="text-align:left;">
+gender
+</th>
+<th style="text-align:left;">
+dob
+</th>
+<th style="text-align:left;">
+dod
+</th>
+<th style="text-align:left;">
+dod_hosp
+</th>
+<th style="text-align:left;">
+dod_ssn
+</th>
+<th style="text-align:right;">
+expire_flag
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+29663
+</td>
+<td style="text-align:right;">
+31585
+</td>
+<td style="text-align:left;">
+M
+</td>
+<td style="text-align:left;">
+1969-12-31 17:59:59
+</td>
+<td style="text-align:left;">
+2101-01-10
+</td>
+<td style="text-align:left;">
+2101-01-10
+</td>
+<td style="text-align:left;">
+2101-01-10
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+36842
+</td>
+<td style="text-align:right;">
+62884
+</td>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+1969-12-31 17:59:59
+</td>
+<td style="text-align:left;">
+2100-11-25
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2100-11-25
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+29395
+</td>
+<td style="text-align:right;">
+31288
+</td>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+1969-12-31 17:59:59
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3067
+</td>
+<td style="text-align:right;">
+3240
+</td>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+1969-12-31 17:59:59
+</td>
+<td style="text-align:left;">
+2102-01-21
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2102-01-21
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+28083
+</td>
+<td style="text-align:right;">
+29851
+</td>
+<td style="text-align:left;">
+M
+</td>
+<td style="text-align:left;">
+1969-12-31 17:59:59
+</td>
+<td style="text-align:left;">
+2101-08-03
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2101-08-03
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+</tbody>
+</table>
+<p>Oddly, the cast below reveals the 1969 years are really 1800.</p>
 <pre class="sql"><code>SELECT subject_id, dob, cast(dob as date) AS dobDate
 FROM   patients
 ORDER BY dob
@@ -1016,8 +1184,8 @@ dobdate
 <div id="close-database" class="section level1">
 <h1><span class="header-section-number">5</span> Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
-<p>Processing time: 2.1 secs</p>
-<p>2018-12-23 1556</p>
+<p>Processing time: 2.3 secs</p>
+<p>2018-12-23 2059</p>
 </div>
 
 
