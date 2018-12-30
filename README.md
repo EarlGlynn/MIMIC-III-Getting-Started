@@ -2,7 +2,7 @@
 
 The files in this repository are intended to help data scientists get started working with [MIMIC-III critical care data](https://mimic.physionet.org/) using R/RStudio in a PostgreSQL database.
 
-## Background information:
+## Background information
 
 Alistair E W Johnson, David J Stone, et al,
 [The MIMIC Code Repository: enabling reproducibility in critical care research](https://academic.oup.com/jamia/article/25/1/32/4259424),
@@ -49,13 +49,13 @@ Information in this folder shows:
 
 At present *RPostgreSQL* or *odbc* are the preferred ways to access the MIMIC-III Postgres database using RStudio notebooks.
 
-A bug in the package *RPOstgres* should be fixed in Feb. 2019, and it may be the package of choice to use at that time.
+A bug in the package *RPostgres* should be fixed in Feb. 2019, and it may be the package of choice to use at that time.
 
 ### 050-Querying-MIMIC-III
 
-SQL and tidyverse/dplry solutions in RStudio notebooks for the [Querying MIMIC-III](https://mimic.physionet.org/tutorials/intro-to-mimic-iii/) examples. Tutorials from [PhysioNet](https://physionet.org/) site.
+SQL and tidyverse/dplyr solutions in RStudio notebooks for the [Querying MIMIC-III](https://mimic.physionet.org/tutorials/intro-to-mimic-iii/) examples. Tutorials from [PhysioNet](https://physionet.org/) site.
 
 ### 060-Nature-Scientific-Data
 
-Jupyter notebook showing plots of example patient.  Part of paper [MIMIC-III, a freely accessible critical care database](https://www.ncbi.nlm.nih.gov/pubmed/27219127).
+Jupyter notebook showing plots of example patient.  Part of online site [MIMIC-III, a freely accessible critical care database](https://www.nature.com/articles/sdata201635).
 
