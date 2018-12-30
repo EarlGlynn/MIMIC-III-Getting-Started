@@ -141,7 +141,7 @@ $(document).ready(function () {
 </ul>
 </div>
 
-<p>efg | 2018-09-24 | Updated 2018-12-16.</p>
+<p>efg | 2018-09-24 | Updated 2018-12-23.</p>
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <p>The purpose of this RStudio notebook is to reproduce the initial SQL examples in <a href="https://mimic.physionet.org/tutorials/intro-to-mimic-iii/">Querying MIMIC-III</a>, Section 3 “Patient numbers” through Section 7 “Services.” Unfortuantely, the online source shows SQL code but does not show the “correct” answers, so a definitive conclusion that this all matches is not possible.</p>
@@ -168,13 +168,11 @@ $(document).ready(function () {
 <div id="setup" class="section level1">
 <h1>Setup</h1>
 <pre class="r"><code>library(DBI)
-library(RPostgres)</code></pre>
-<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgres::Postgres(), 
-                     host     = &quot;localhost&quot;,
+library(RPostgreSQL)   # Consider RPostgres when it works with dates correctly</code></pre>
+<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgreSQL::PostgreSQL(), 
                      dbname   = &quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
                      password = Sys.getenv(&quot;MIMIC_Password&quot;),
-                     bigint   = &quot;integer&quot;,   # See RBloggers 2018-03-16 posting
                      options  = &quot;-c search_path=mimiciii&quot;)</code></pre>
 </div>
 <div id="querying-mimic-iii" class="section level1">
@@ -991,8 +989,9 @@ WHERE  HADM_ID = 112213</code></pre>
 <div id="close-database" class="section level1">
 <h1>Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
-<p>Processing time: 1.2 secs</p>
-<p>2018-12-17 2136</p>
+<pre><code>[1] TRUE</code></pre>
+<p>Processing time: 1.1 secs</p>
+<p>2018-12-23 2309</p>
 </div>
 
 

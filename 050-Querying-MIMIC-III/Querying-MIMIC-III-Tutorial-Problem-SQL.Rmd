@@ -7,7 +7,7 @@ output:
     toc: yes
 ---
 
-efg | 2018-09-21 | Updated 2018-12-16.
+efg | 2018-09-21 | Updated 2018-12-29.
 
 # Overview
 
@@ -21,32 +21,55 @@ Many of the comments below are from the source above.
 
 SQL statements were lightly edited for readability in the SQL program "chunks".  The output of each SQL statement was directed to the variable `output.var` in the SQL chunk definition to document the dimensions of the returned results.  `output.var` results could be displayed or manipulated in any way.
 
+Units were added to some of the variable names for clarity.
+
 Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path. 
+
+# Setup
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 options(cli.unicode = FALSE)
+options(width=100)
 time.1 <- Sys.time()
 ```
 
-# Setup
+Packages
 
 ```{r, comment=NA}
 library(DBI)
-library(RPostgres)
+library(RPostgreSQL)
+library(tidyverse)
+library(kableExtra)
 ```
 
+Helper function:  Common formatting mostly for data.frames/tibbles below
+
 ```{r}
-MimicDB <- dbConnect(RPostgres::Postgres(), 
-                     host     = "localhost",
+Show <- function(data, caption = NULL)
+{
+  data                               %>%
+  kable("html", caption = caption)   %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "condensed"),
+                position = "left", full_width = FALSE, font_size=12)
+}
+```         
+
+Open database
+
+```{r}
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "integer",   # See RBloggers 2018-03-16 posting
                      options  = "-c search_path=mimiciii")
+
+MimicVersion <- "MIMIC-III, v1.4"
 ```
 
 # Querying MIMIC-III
+
+Note:  All SQL chunks below put results in object SQLresults for processing in R.
 
 ## 8. Tutorial problem
 
@@ -69,7 +92,10 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>% head() %>% Show(caption = "Selected fields from icustays")
 ```
 
 ### Step 2
@@ -83,7 +109,7 @@ SELECT
   ie.icustay_id,
   ie.intime, 
   ie.outtime,
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age_years
 FROM   
   icustays ie
 
@@ -93,12 +119,34 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
 ```
+
+```{r, comment=NA}
+SQLresults %>% 
+  head()   %>%
+  Show(caption = "Calculated ages")
+```
+
+The following graphic is an addition to the original example.
+
+```{r, comment=NA, fig.width=8, fig.height=6}
+ggplot(SQLresults, aes(x=age_years, y=..density..))          +
+  geom_histogram(fill="cornsilk", color="grey80", bins=50)   +
+  geom_density()                                             +
+  labs(title    = "Age density",
+       subtitle = paste0(nrow(SQLresults), " records"),
+       x = "Age [years]",
+       y = "Density",
+       caption = MimicVersion)
+```
+
+Note the strange convention for  ages > 89 to be represented as ~300 years.
 
 ### Step 3
 
 Separate neonates from adult patients.
+
+Unclear here why > 100 used to find ages ~300 years old to represent ages > 89.
 
 ```{sql, connection=MimicDB, output.var="SQLresults"}
 SELECT 
@@ -108,7 +156,7 @@ SELECT
   ie.intime, 
   ie.outtime,
   
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) AS age_years,
   
   CASE
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
@@ -133,12 +181,27 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
 ```
+
+```{r, comment=NA}
+SQLresults %>%
+  head()   %>%
+  Show()
+```
+
+```{r}
+SQLresults                    %>%
+  group_by(icustay_age_group) %>%
+  count()                     %>%
+  Show(caption = "Counts by Age Group")
+```
+
 
 ### Step 4
 
 By incorporating the admissions table, find how long each stay was BEFORE the patients were admitted to the ICU.
+
+Changed original query to return preiculos in days instead of years.
 
 ```{sql, connection=MimicDB, output.var="SQLresults"}
 SELECT 
@@ -148,8 +211,8 @@ SELECT
   ie.intime, 
   ie.outtime,
   
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age,
-  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) as preiculos,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age_years,
+        (cast(ie.intime as date) - cast(adm.admittime as date))             as preiculos_days,
   
   CASE
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
@@ -158,7 +221,7 @@ SELECT
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 14
     THEN 'middle'
     
-    -- all ages > 89 in the database were replaced with 300
+    -- all ages > 89 in the database were replaced with ~300
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
     THEN '>89'
     
@@ -177,7 +240,32 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>% head() %>% Show(caption = "Pre-ICU Length of Stay [days]")
+```
+
+```{r, comment=NA}
+counts    <- table(SQLresults$icustay_age_group, useNA = "ifany")
+facetName <- paste0(names(counts), " [", counts, "]")
+
+variableLabeller <- function(variable,value)
+{
+  return(facetName[value])
+}
+```
+
+```{r, fig.height=8, fig.width=8}
+ggplot(SQLresults, aes(x = preiculos_days, y= ..density..))        +
+  geom_histogram(fill = "cornsilk", color = "grey80", bins = 50)   +
+  geom_density()                                                   +  
+  xlim(0, 7)                                                       +
+  facet_wrap(~icustay_age_group, nrow=length(counts), 
+             labeller = as_labeller(variableLabeller))
+
+
+
 ```
 
 ### Step 5
@@ -193,8 +281,8 @@ SELECT
   ie.outtime, 
   adm.deathtime,
   
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age,
-  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age_years,
+        (cast(ie.intime as date) - cast(adm.admittime as date))             as preiculos_days,
   
   CASE
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
@@ -222,7 +310,35 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>% head() %>% Show(caption = "Show Death Time (if applicable)")
+```
+
+```{r}
+deaths <-
+  SQLresults                 %>%
+  filter(!is.na(deathtime)) 
+```
+
+Counts of deaths
+
+```{r}
+deaths %>% count() %>% Show()
+```
+
+```{r}
+deaths                                              %>% 
+  group_by(icustay_age_group)                       %>%
+  summarize(n = n(), 
+            minAge    = min(age_years),
+            Q25age    = quantile(age_years, 0.25),
+            medianAge = median(age_years),
+            meanAge   = round(mean(age_years), 2),
+            Q75age    = quantile(age_years, 0.75),
+            maxAge    = max(age_years))             %>%
+  Show(caption = "Stats by age group for patients who died")
 ```
 
 ### Step 6
@@ -238,8 +354,8 @@ SELECT
   ie.outtime, 
   adm.deathtime,
     
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) AS age,
-  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age_years,
+        (cast(ie.intime as date) - cast(adm.admittime as date))             as preiculos_days,
   
   CASE
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
@@ -251,15 +367,13 @@ SELECT
     -- all ages > 89 in the database were replaced with 300
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
     THEN '>89'
-      
     ELSE 'adult'
   END AS ICUSTAY_AGE_GROUP,
       
-  -- note that there is already a "hospital_expire_flag" field in the admissions table which you could use
+  -- note that there is already a "hospital_expire_flag" field in the admissions table 
   CASE
     WHEN adm.hospital_expire_flag = 1 
     THEN 'Y'
-    
     ELSE 'N'
   END AS hospital_expire_flag
     
@@ -275,8 +389,20 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
 ```
+
+```{r, comment=NA}
+SQLresults %>% head() %>% Show()
+```
+
+```{r}
+SQLresults                                           %>%
+  group_by(icustay_age_group, hospital_expire_flag)  %>%
+  count()                                            %>%
+  spread(hospital_expire_flag, n)                    %>%
+  Show(caption = "Counts of Hospital Deaths ('Y')")
+```
+
 
 ### Step 7
 
@@ -291,8 +417,8 @@ SELECT
   ie.outtime, 
   adm.deathtime,
     
-  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) AS age,
-  ROUND((cast(ie.intime as date) - cast(adm.admittime as date))/365.242, 2) AS preiculos,
+  ROUND((cast(ie.intime as date) - cast(pat.dob as date))      /365.242, 2) as age_years,
+        (cast(ie.intime as date) - cast(adm.admittime as date))             as preiculos_days,
   
   CASE
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) <= 1
@@ -304,11 +430,10 @@ SELECT
     -- all ages > 89 in the database were replaced with 300
     WHEN ROUND((cast(ie.intime as date) - cast(pat.dob as date))/365.242, 2) > 100
     THEN '>89'
-    
     ELSE 'adult'
   END AS ICUSTAY_AGE_GROUP,
 
-  -- note that there is already a "hospital_expire_flag" field in the admissions table which you could use
+  -- note that there is already a "hospital_expire_flag" field in the admissions table
   CASE
     WHEN adm.hospital_expire_flag = 1 
     THEN 'Y'           
@@ -327,8 +452,8 @@ SELECT
     WHEN adm.dischtime          <= ie.outtime     AND
          adm.discharge_location  = 'DEAD/EXPIRED'
     THEN 'Y'
-    
     ELSE 'N'
+    
   END AS ICUSTAY_EXPIRE_FLAG
 
 FROM 
@@ -343,7 +468,26 @@ FROM
 
 ```{r, comment=NA}
 dim(SQLresults)
-head(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>% head() %>% Show()
+```
+
+```{r, comment=NA}
+table(SQLresults$icustay_expire_flag)
+```
+
+```{r}
+SQLresults                                          %>%
+  group_by(icustay_age_group, icustay_expire_flag)  %>%
+  count()                                           %>%
+  spread(icustay_expire_flag, n)                    %>%
+  Show(caption = "Counts of Deaths in ICU ('Y')")
+```
+
+```{r, comment=NA}
+table(SQLresults$hospital_expire_flag, SQLresults$icustay_expire_flag)
 ```
 
 # Close database

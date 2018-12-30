@@ -7,7 +7,7 @@ output:
     toc: yes
 ---
 
-efg | 2018-10-08 | Updated 2018-12-17.
+efg | 2018-10-08 | Updated 2018-12-23.
 
 # Introduction   
 
@@ -62,7 +62,7 @@ Packages
 
 ```{r, comment=NA}
 library(DBI)
-library(RPostgres)
+library(RPostgreSQL)
 library(tidyverse)
 library(dbplyr, warn.conflicts=FALSE)
 library(kableExtra)
@@ -72,12 +72,10 @@ library(lubridate, warn.conflicts=FALSE)   # date computations
 Open Database
 
 ```{r}
-MimicDB <- dbConnect(RPostgres::Postgres(), 
-                     host     = "localhost",
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "integer",   # See RBloggers 2018-03-16 posting
                      options  = "-c search_path=mimiciii")
 ```
 
@@ -105,16 +103,19 @@ When reading the statement above, read the "%>%" pipe operator as "then".
 Obtain the number of patients with the following query:   
 
 ```{r, comment=NA}
-patients %>% count()
+patients  %>% 
+  count() %>%
+  Show()
 ```
 
 The `gender` column identifies the gender of the patient. We can obtain the distinct values used to indicate gender using the following query:      
 
 ```{r, comment=NA}
-patients                                    %>% 
-  select(gender)                            %>% 
-  distinct()                                %>%
-  collect() 
+patients          %>% 
+  select(gender)  %>% 
+  distinct()      %>%
+  collect()       %>%
+  Show()
 ```
 
 `collect` forces evaluation on the database server with the results passed in-memory to R.  
@@ -122,7 +123,10 @@ patients                                    %>%
 We can see that 'M' and 'F' are the two characters used to indicate patient gender. We can use this information to obtain the number of female patients by adding a condition to select rows where the gender is 'F':
 
 ```{r, comment=NA}
-patients %>% filter(gender == "F") %>% count()
+patients                %>% 
+  filter(gender == "F") %>% 
+  count()               %>%
+  Show()
 ```
 
 And the numbers of male and female patients can be obtained using the following query:  

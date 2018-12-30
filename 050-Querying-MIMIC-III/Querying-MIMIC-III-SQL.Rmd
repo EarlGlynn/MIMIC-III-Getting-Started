@@ -7,7 +7,7 @@ output:
     toc: yes
 ---
 
-efg | 2018-09-24 | Updated 2018-12-16.
+efg | 2018-09-24 | Updated 2018-12-23.
 
 # Introduction
 
@@ -49,17 +49,16 @@ time.1 <- Sys.time()
 
 ```{r, comment=NA}
 library(DBI)
-library(RPostgres)
+library(RPostgreSQL)   # Consider RPostgres when it works with dates correctly
 ```
 
 ```{r, comment=NA}
-MimicDB <- dbConnect(RPostgres::Postgres(), 
-                     host     = "localhost",
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
-                     bigint   = "integer",   # See RBloggers 2018-03-16 posting
                      options  = "-c search_path=mimiciii")
+
 ```
 
 # Querying MIMIC-III

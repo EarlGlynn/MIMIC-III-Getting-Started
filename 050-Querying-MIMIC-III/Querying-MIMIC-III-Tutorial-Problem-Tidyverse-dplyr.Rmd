@@ -1,0 +1,453 @@
+---
+title: "Querying MIMIC-III -- Tutorial Problem -- Tidyverse/dplyr"
+output:
+  html_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+---
+
+efg | 2018-09-21 | Updated 2018-12-29.
+
+# Overview
+
+The purpose of this script is to reproduce the "Tutorial Problem" from [Querying MIMIC-III](https://mimic.physionet.org/tutorials/intro-to-mimic-iii/), Section 8, using Tidyverse/dplyr in the examples instead of SQL used in the original solution.  This enables a direct comparison between solving the problem using SQL and dplyr/dbplyr.
+
+The examples from Section 3 “Patient numbers” through Section 7 “Services are in a separate notebook.
+
+Many of the comments below are from the source above.
+
+Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path. 
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(cli.unicode = FALSE)
+time.1 <- Sys.time()
+```
+
+Packages
+
+```{r, comment=NA}
+library(DBI)
+library(RPostgreSQL)
+library(tidyverse)
+library(dbplyr,    warn.conflicts=FALSE)
+library(lubridate, warn.conflicts=FALSE)   # date computations
+library(kableExtra)
+```
+
+Helper function:  Common formatting mostly for data.frames/tibbles below
+
+```{r}
+Show <- function(data, caption = NULL)
+{
+  data                               %>%
+  kable("html", caption = caption)   %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "condensed"),
+                position = "left", full_width = FALSE, font_size=12)
+}
+```        
+
+Open database
+
+```{r, comment=NA}
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     options  = "-c search_path=mimiciii")
+
+MimicVersion <- "MIMIC-III, v1.4"
+```
+
+Table references
+
+```{r, comment=NA}
+icustays   <- tbl(MimicDB, in_schema("mimiciii", "icustays"))
+patients   <- tbl(MimicDB, in_schema("mimiciii", "patients"))
+admissions <- tbl(MimicDB, in_schema("mimiciii", "admissions"))
+```
+
+# Querying MIMIC-III
+
+## 8. Tutorial problem
+
+How would you gather useful information about patients admitted to the ICU? The problem can be broken down into several parts:
+
+### Step 1
+
+First start with retrieving `subject_id`, `hadm_id`, `icustay_id`, `intime`, and `outtime` from the `icustays` table.
+
+```{r, comment=NA}
+results1 <-
+  icustays                                                  %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime)  %>%
+  collect()    # force execution by DB server and return as R object
+```
+
+All results returned to in-memory tibble
+
+```{r, comment=NA}
+dim(results1)
+```
+
+```{r, comment=NA}
+results1 %>% 
+  head() %>% 
+  Show("Selected fields from icustays")
+```
+
+### Step 2
+
+Using the patients table retrieve the calculated age of patients.
+
+```{r, comment=NA}
+results2 <-
+  icustays                                                             %>%
+  inner_join(patients, by="subject_id")                                %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, dob)        %>%
+  collect()                                                            %>%
+  mutate(ageYears = (as.numeric(floor_date(intime, unit="day") - 
+                                floor_date(dob,    unit="day"), 
+                                units="days")  /  365.242)  %>%  round(2))  %>%
+  select(-dob)
+```
+
+```{r, comment=NA}
+dim(results2)
+```
+
+```{r, comment=NA}
+results2   %>% 
+  head()   %>%
+  Show(caption = "Calculated ages")
+```
+
+The following graphic is an addition to the original example.
+
+```{r, comment=NA, fig.width=8, fig.height=6}
+ggplot(results2, aes(x=ageYears, y=..density..))            +
+  geom_histogram(fill="cornsilk", color="grey80", bins=50)  +
+  geom_density()                                            +
+  labs(title    = "Age density",
+       subtitle = paste0(nrow(results2), " records"),
+       x = "Age",
+       y = "Density",
+       caption = MimicVersion)
+         
+```
+
+Note the strange convention for ages > 89 to be represented as ~300 years.
+
+### Step 3
+
+Separate neonates from adult patients.
+
+```{r, comment=NA}
+results3 <-
+  icustays                                                            %>%
+  inner_join(patients, by="subject_id")                               %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, dob)       %>%
+  collect()                                                           %>%
+  mutate(ageYears = (as.numeric(floor_date(intime, unit="day") - 
+                                floor_date(dob,    unit="day"), 
+                                units="days")  /  365.242)  %>%  round(2)) %>%
+  select(-dob)                                                        %>%
+  mutate(icuStayAgeGroup =
+           case_when(
+             ageYears <=  1 ~ "neonate",
+             ageYears <= 14 ~ "middle",
+             ageYears > 100 ~ ">89",
+             TRUE           ~ "adult"
+           ))                       
+```
+
+```{r, comment=NA}
+dim(results3)
+```
+
+```{r, comment=NA}
+results3 %>% head() %>% Show()
+```
+
+```{r, comment=NA}
+results3                    %>%
+  group_by(icuStayAgeGroup) %>%
+  count()                   %>%
+  Show(caption = "Counts by Age Group")
+```
+
+### Step 4
+
+By incorporating the admissions table, find how long each stay was BEFORE the patients were admitted to the ICU.
+
+Changed original query to return preiculos (pre-ICU Length-of-Stay) in days instead of years.
+
+```{r, comment=NA}
+results4 <-
+  icustays                                                            %>%
+  inner_join(patients,   by = "subject_id")                           %>%
+  inner_join(admissions, by = c("subject_id", "hadm_id"))             %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, 
+         dob, admittime)                                              %>%
+  collect()                                                           %>%
+  mutate(ageYears      = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(dob,       unit="day"), 
+                                     units="days")  / 365.242)  %>%  round(2),
+         
+         preiculosDays = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(admittime, unit="day"), 
+                                     units="days")) 
+         
+        )                                                             %>%
+  select(-dob, -admittime)                                            %>%
+  mutate(icuStayAgeGroup =
+           case_when
+           (
+             ageYears <=  1 ~ "neonate",
+             ageYears <= 14 ~ "middle",
+             ageYears > 100 ~ ">89",
+             TRUE           ~ "adult"
+           )
+         )                       
+```
+
+```{r, comment=NA}
+dim(results4)
+```
+
+```{r, comment=NA}
+results4 %>% head() %>% Show(caption = "Pre-ICU Length of Stay [days]")
+```
+```{r, comment=NA}
+counts    <- table(results4$icuStayAgeGroup, useNA = "ifany")
+facetName <- paste0(names(counts), " [", counts, "]")
+
+variableLabeller <- function(variable,value)
+{
+  return(facetName[value])
+}
+```
+
+```{r, fig.height=8, fig.width=8}
+ggplot(results4, aes(x = preiculosDays, y= ..density..))        +
+  geom_histogram(fill = "cornsilk", color = "grey80", bins = 50)   +
+  geom_density()                                                   +  
+  xlim(0, 7)                                                       +
+  facet_wrap(~icuStayAgeGroup, nrow=length(counts), 
+             labeller = as_labeller(variableLabeller))
+
+
+
+```
+
+### Step 5
+
+Next find the date of the patient’s death if applicable.
+
+```{r, comment=NA}
+results5 <-
+  icustays                                                            %>%
+  inner_join(patients,   by = "subject_id")                           %>%
+  inner_join(admissions, by = c("subject_id", "hadm_id"))             %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, 
+         deathtime, dob, admittime)                                   %>%
+  collect()                                                           %>%
+  mutate(ageYears      = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(dob,       unit="day"), 
+                                     units="days")  / 365.242)  %>%  round(2),
+         
+         preiculosDays = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(admittime, unit="day"), 
+                                     units="days")) 
+         
+        )                                                             %>%
+  select(-dob, -admittime)                                            %>%
+  mutate(icuStayAgeGroup =
+           case_when
+           (
+             ageYears <=  1 ~ "neonate",
+             ageYears <= 14 ~ "middle",
+             ageYears > 100 ~ ">89",
+             TRUE           ~ "adult"
+           )
+         )                       
+```
+
+```{r, comment=NA}
+dim(results5)
+```
+
+```{r, comment=NA}
+results5 %>% head() %>% Show(caption = "Show Death Time (if applicable)")
+```
+
+```{r}
+deaths <-
+  results5                 %>%
+  filter(!is.na(deathtime)) 
+```
+
+Counts of deaths
+
+```{r}
+deaths %>% count() %>% Show()
+```
+
+```{r}
+deaths                                              %>% 
+  group_by(icuStayAgeGroup)                         %>%
+  summarize(n = n(), 
+            minAge    = min(ageYears),
+            Q25age    = quantile(ageYears, 0.25),
+            medianAge = median(ageYears),
+            meanAge   = round(mean(ageYears), 2),
+            Q75age    = quantile(ageYears, 0.75),
+            maxAge    = max(ageYears))             %>%
+  Show(caption = "Stats by age group for patients who died")
+```
+
+### Step 6
+
+Then find those deaths that occurred while the patients were in the hospital.
+
+```{r, comment=NA}
+results6 <-
+  icustays                                                                %>%
+  inner_join(patients,   by = "subject_id")                               %>%
+  inner_join(admissions, by = c("subject_id", "hadm_id"))                 %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, 
+         deathtime, dob, admittime, hospital_expire_flag)                 %>%
+  collect()                                                               %>%
+  mutate(ageYears      = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(dob,       unit="day"), 
+                                     units="days")  / 365.242)  %>%  round(2),
+         
+         preiculosDays = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(admittime, unit="day"), 
+                                     units="days")),
+         icuStayAgeGroup =
+           case_when
+           (
+             ageYears <=  1 ~ "neonate",
+             ageYears <= 14 ~ "middle",
+             ageYears > 100 ~ ">89",
+             TRUE           ~ "adult"
+           ),
+         
+         hospitalExpireFlag = ifelse(hospital_expire_flag == 1, "Y", "N")
+        )                                                                %>%
+  
+  select(-dob, -admittime, -hospital_expire_flag)
+```
+
+```{r, comment=NA}
+dim(results6)
+```
+
+```{r, comment=NA}
+results6 %>% head() %>% Show()
+```
+
+```{r}
+results6                                             %>%
+  group_by(icuStayAgeGroup, hospitalExpireFlag)      %>%
+  count()                                            %>%
+  spread(hospitalExpireFlag, n)                      %>%
+  Show(caption = "Counts of Hospital Deaths ('Y')")
+```
+
+### Step 7 (FIX ME to match PostgresQL results)
+
+NOTE:  There's something wierd (for me) going on with the time comparisons in computing icuStayExpireFlag.  There are unexplainable results using only the case "deathtime <= intime".
+
+Find how many of those deaths occurred within the ICU.
+
+```{r, comment=NA}
+results7 <-
+  icustays                                                                %>%
+  inner_join(patients,   by = "subject_id")                               %>%
+  inner_join(admissions, by = c("subject_id", "hadm_id"))                 %>%
+  select(subject_id, hadm_id, icustay_id, intime, outtime, 
+         deathtime, dob, admittime, hospital_expire_flag, 
+         dischtime, discharge_location)                                   %>%
+  collect()                                                               %>%
+  mutate(ageYears      = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(dob,       unit="day"), 
+                                     units="days")  / 365.242)  %>%  round(2),
+         
+         preiculosDays = (as.numeric(floor_date(intime,    unit="day") - 
+                                     floor_date(admittime, unit="day"), 
+                                     units="days")),
+         icuStayAgeGroup =
+           case_when
+           (
+             ageYears <=  1 ~ "neonate",
+             ageYears <= 14 ~ "middle",
+             ageYears > 100 ~ ">89",
+             TRUE           ~ "adult"
+           ),
+         
+         hospitalExpireFlag = ifelse(hospital_expire_flag == 1, "Y", "N"),
+         
+         icuStayExpireFlag = 
+           case_when
+           (
+             (deathtime >= intime) &   # [don't use between](https://wiki.postgresql.org/wiki/Don%27t_Do_This)
+             (deathtime <= outtime)                   ~ "Y",  
+             
+             deathtime <= intime                      ~ "Y",
+             
+             (dischtime <= outtime) & 
+             (discharge_location == "DEAD/EXPIRED")   ~ "Y",
+               
+             TRUE                                     ~ "N"
+           )
+        )                                                                %>%
+  
+  select(-dob, -admittime, -hospital_expire_flag, -dischtime, -discharge_location) %>%
+  arrange(subject_id, hadm_id)
+```
+
+```{r, comment=NA}
+dim(results7)
+```
+
+```{r, comment=NA}
+results7 %>% head() %>% Show()
+```
+
+```{r}
+table(results7$icuStayExpireFlag)
+```
+
+```{r}
+results7                                          %>%
+  group_by(icuStayAgeGroup, icuStayExpireFlag)    %>%
+  count()                                         %>%
+  spread(icuStayExpireFlag, n)                    %>%
+  Show(caption = "Counts of Deaths in ICU ('Y')")
+```
+
+```{r, comment=NA}
+table(results7$hospitalExpireFlag, results7$icuStayExpireFlag)
+```
+
+# Close database
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+```{r, comment=NA, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", 
+                        sprintf("%.1f",
+                                as.numeric(difftime(time.2, time.1,
+                                                    units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`
