@@ -144,7 +144,7 @@ $(document).ready(function () {
 </ul>
 </div>
 
-<p>efg | 2018-09-21 | Updated 2018-12-29.</p>
+<p>efg | 2018-09-21 | Updated 2018-12-30.</p>
 <div id="overview" class="section level1">
 <h1>Overview</h1>
 <p>The purpose of this RStudio notebook is to reproduce the SQL “Tutorial Problem” from <a href="https://mimic.physionet.org/tutorials/intro-to-mimic-iii/">Querying MIMIC-III</a>, Section 8. Unfortuantely, the online source shows SQL code but does not show the “correct” answers, so a definitive conclusion that this all matches is not possible.</p>
@@ -154,19 +154,21 @@ $(document).ready(function () {
 <p>SQL statements were lightly edited for readability in the SQL program “chunks”. The output of each SQL statement was directed to the variable <code>output.var</code> in the SQL chunk definition to document the dimensions of the returned results. <code>output.var</code> results could be displayed or manipulated in any way.</p>
 <p>Units were added to some of the variable names for clarity.</p>
 <p>Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path.</p>
+<p>NOTES:</p>
+<p>Either RPostgreSQL or RPostgres seems to work with Postgres SQL queries. However, only RPostgres works with Step 7 with the dplyr solution, so a switch in database drivers is made in step 7 for consistency with the dplyr solution.</p>
 </div>
 <div id="setup" class="section level1">
 <h1>Setup</h1>
 <p>Packages</p>
 <pre class="r"><code>library(DBI)
-library(RPostgreSQL)
+library(RPostgres) 
 library(tidyverse)</code></pre>
-<pre><code>-- Attaching packages ---------------------------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>-- Attaching packages ------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>v ggplot2 3.1.0     v purrr   0.2.5
 v tibble  1.4.2     v dplyr   0.7.7
 v tidyr   0.8.2     v stringr 1.3.1
 v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>-- Conflicts ------------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>-- Conflicts ---------------------------------------------------------------------------------- tidyverse_conflicts() --
 x dplyr::filter() masks stats::filter()
 x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(kableExtra)</code></pre>
@@ -179,7 +181,7 @@ x dplyr::lag()    masks stats::lag()</code></pre>
                 position = &quot;left&quot;, full_width = FALSE, font_size=12)
 }</code></pre>
 <p>Open database</p>
-<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgreSQL::PostgreSQL(), 
+<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgreSQL::PostgreSQL(),    # PostgreSQL for Steps 1 - 6
                      dbname   = &quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
                      password = Sys.getenv(&quot;MIMIC_Password&quot;),
@@ -1747,6 +1749,13 @@ neonate
 </div>
 <div id="step-7" class="section level3">
 <h3>Step 7</h3>
+<pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
+<pre><code>[1] TRUE</code></pre>
+<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgres::Postgres(),    # Postgres for Step 7
+                     dbname   = &quot;mimic&quot;,
+                     user     = Sys.getenv(&quot;MIMIC_User&quot;),
+                     password = Sys.getenv(&quot;MIMIC_Password&quot;),
+                     options  = &quot;-c search_path=mimiciii&quot;)</code></pre>
 <p>Find how many of those deaths occurred within the ICU.</p>
 <pre class="sql"><code>SELECT 
   ie.subject_id, 
@@ -1802,7 +1811,11 @@ FROM
   ON ie.subject_id = pat.subject_id
   
   INNER JOIN admissions adm
-  ON ie.hadm_id = adm.hadm_id</code></pre>
+  ON ie.hadm_id = adm.hadm_id
+  
+ORDER BY
+  SUBJECT_ID,
+  HADM_ID</code></pre>
 <pre class="r"><code>dim(SQLresults)</code></pre>
 <pre><code>[1] 61532    11</code></pre>
 <pre class="r"><code>SQLresults %&gt;% head() %&gt;% Show()</code></pre>
@@ -1847,95 +1860,60 @@ icustay_expire_flag
 <tbody>
 <tr>
 <td style="text-align:right;">
-268
+2
 </td>
 <td style="text-align:right;">
-110404
+163353
 </td>
 <td style="text-align:right;">
-280836
+243653
 </td>
 <td style="text-align:left;">
-2198-02-14
+2138-07-17 21:20:07
 </td>
 <td style="text-align:left;">
-2198-02-18
+2138-07-17 23:32:21
 </td>
 <td style="text-align:left;">
-2198-02-18 03:55:00
+NA
 </td>
 <td style="text-align:right;">
-65.98
+0.00
 </td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+neonate
+</td>
+<td style="text-align:left;">
+N
+</td>
+<td style="text-align:left;">
+N
+</td>
+</tr>
+<tr>
 <td style="text-align:right;">
 3
 </td>
-<td style="text-align:left;">
-adult
-</td>
-<td style="text-align:left;">
-Y
-</td>
-<td style="text-align:left;">
-Y
-</td>
-</tr>
-<tr>
 <td style="text-align:right;">
-270
+145834
 </td>
 <td style="text-align:right;">
-188028
-</td>
-<td style="text-align:right;">
-220345
+211552
 </td>
 <td style="text-align:left;">
-2128-06-24
+2101-10-20 19:10:11
 </td>
 <td style="text-align:left;">
-2128-06-27
+2101-10-26 20:43:09
 </td>
 <td style="text-align:left;">
 NA
 </td>
 <td style="text-align:right;">
-80.08
-</td>
-<td style="text-align:right;">
-1
-</td>
-<td style="text-align:left;">
-adult
-</td>
-<td style="text-align:left;">
-N
-</td>
-<td style="text-align:left;">
-N
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-271
-</td>
-<td style="text-align:right;">
-173727
-</td>
-<td style="text-align:right;">
-249196
-</td>
-<td style="text-align:left;">
-2120-08-07
-</td>
-<td style="text-align:left;">
-2120-08-10
-</td>
-<td style="text-align:left;">
-NA
-</td>
-<td style="text-align:right;">
-45.68
+76.52
 </td>
 <td style="text-align:right;">
 0
@@ -1952,25 +1930,25 @@ N
 </tr>
 <tr>
 <td style="text-align:right;">
-273
+4
 </td>
 <td style="text-align:right;">
-158689
+185777
 </td>
 <td style="text-align:right;">
-241507
+294638
 </td>
 <td style="text-align:left;">
-2141-04-19
+2191-03-16 00:29:31
 </td>
 <td style="text-align:left;">
-2141-04-20
+2191-03-17 16:46:31
 </td>
 <td style="text-align:left;">
 NA
 </td>
 <td style="text-align:right;">
-33.69
+47.84
 </td>
 <td style="text-align:right;">
 0
@@ -1987,25 +1965,60 @@ N
 </tr>
 <tr>
 <td style="text-align:right;">
-274
+5
 </td>
 <td style="text-align:right;">
-130546
+178980
 </td>
 <td style="text-align:right;">
-254851
+214757
 </td>
 <td style="text-align:left;">
-2114-06-28
+2103-02-02 06:04:24
 </td>
 <td style="text-align:left;">
-2114-07-07
+2103-02-02 08:06:00
 </td>
 <td style="text-align:left;">
 NA
 </td>
 <td style="text-align:right;">
-66.11
+0.00
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+neonate
+</td>
+<td style="text-align:left;">
+N
+</td>
+<td style="text-align:left;">
+N
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+107064
+</td>
+<td style="text-align:right;">
+228232
+</td>
+<td style="text-align:left;">
+2175-05-30 21:30:54
+</td>
+<td style="text-align:left;">
+2175-06-03 13:39:54
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+65.94
 </td>
 <td style="text-align:right;">
 0
@@ -2022,34 +2035,34 @@ N
 </tr>
 <tr>
 <td style="text-align:right;">
-275
+7
 </td>
 <td style="text-align:right;">
-129886
+118037
 </td>
 <td style="text-align:right;">
-219649
+236754
 </td>
 <td style="text-align:left;">
-2170-10-07
+2121-05-25 03:26:01
 </td>
 <td style="text-align:left;">
-2170-10-14
+2121-05-25 21:10:19
 </td>
 <td style="text-align:left;">
-2170-10-19 15:35:00
+NA
 </td>
 <td style="text-align:right;">
-82.16
+0.01
 </td>
 <td style="text-align:right;">
-1
+2
 </td>
 <td style="text-align:left;">
-adult
+neonate
 </td>
 <td style="text-align:left;">
-Y
+N
 </td>
 <td style="text-align:left;">
 N
@@ -2130,9 +2143,8 @@ neonate
 <div id="close-database" class="section level1">
 <h1>Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
-<pre><code>[1] TRUE</code></pre>
-<p>Processing time: 58.0 secs</p>
-<p>2018-12-29 2116</p>
+<p>Processing time: 50.8 secs</p>
+<p>2018-12-30 2332</p>
 </div>
 
 

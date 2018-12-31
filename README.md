@@ -47,9 +47,13 @@ Information in this folder shows:
 
 * MIMIC-III-First-Look using several database packages
 
-At present *RPostgreSQL* or *odbc* are the preferred ways to access the MIMIC-III Postgres database using RStudio notebooks.
+Several database drivers can be used in RStudio to access a Postgres database, including *RPostgres*, *RPostgreSQL* and *odbc*.
 
-A bug in the package *RPostgres* should be fixed in Feb. 2019, and it may be the package of choice to use at that time.
+I did not use *odbc* much, but both *RPostgres* and *RPostgreSQL* have problems manipulating datetime fields.
+
+For now, I switch between *RPostgres* and *RPostgreSQL* when one fails to solve a problem. You'll see this in the next section.
+
+(A bug in the package *RPostgres* should be fixed in Feb. 2019, and it may be the package of choice at that time.)
 
 ### 050-Querying-MIMIC-III
 

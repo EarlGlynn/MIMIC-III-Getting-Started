@@ -137,20 +137,25 @@ $(document).ready(function () {
 <li><a href="#step-4">Step 4</a></li>
 <li><a href="#step-5">Step 5</a></li>
 <li><a href="#step-6">Step 6</a></li>
-<li><a href="#step-7-fix-me-to-match-postgresql-results">Step 7 (FIX ME to match PostgresQL results)</a></li>
+<li><a href="#step-7">Step 7</a></li>
 </ul></li>
 </ul></li>
 <li><a href="#close-database">Close database</a></li>
 </ul>
 </div>
 
-<p>efg | 2018-09-21 | Updated 2018-12-29.</p>
+<p>efg | 2018-09-21 | Updated 2018-12-30.</p>
 <div id="overview" class="section level1">
 <h1>Overview</h1>
 <p>The purpose of this script is to reproduce the “Tutorial Problem” from <a href="https://mimic.physionet.org/tutorials/intro-to-mimic-iii/">Querying MIMIC-III</a>, Section 8, using Tidyverse/dplyr in the examples instead of SQL used in the original solution. This enables a direct comparison between solving the problem using SQL and dplyr/dbplyr.</p>
 <p>The examples from Section 3 “Patient numbers” through Section 7 “Services are in a separate notebook.</p>
 <p>Many of the comments below are from the source above.</p>
 <p>Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path.</p>
+<p>NOTES:</p>
+<ul>
+<li><p>RPostgreSQL works fine with dates before 1970, but seems to truncate datetime timestamps to dates in RStudio, and does not compute time intervals correctly at times.</p></li>
+<li><p>Rpostgres does NOT work with dates before 1970 (<em>fix expected in Feb. 2019</em>), but is needed for Step 7 here for results to match between SQL and dplyr solutions.</p></li>
+</ul>
 </div>
 <div id="setup" class="section level1">
 <h1>Setup</h1>
@@ -158,12 +163,12 @@ $(document).ready(function () {
 <pre class="r"><code>library(DBI)
 library(RPostgreSQL)
 library(tidyverse)</code></pre>
-<pre><code>-- Attaching packages ---------------------------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>-- Attaching packages ------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>v ggplot2 3.1.0     v purrr   0.2.5
 v tibble  1.4.2     v dplyr   0.7.7
 v tidyr   0.8.2     v stringr 1.3.1
 v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>-- Conflicts ------------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>-- Conflicts ---------------------------------------------------------------------------------- tidyverse_conflicts() --
 x dplyr::filter() masks stats::filter()
 x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(dbplyr,    warn.conflicts=FALSE)
@@ -178,7 +183,7 @@ library(kableExtra)</code></pre>
                 position = &quot;left&quot;, full_width = FALSE, font_size=12)
 }</code></pre>
 <p>Open database</p>
-<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgreSQL::PostgreSQL(), 
+<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgreSQL::PostgreSQL(),    # PostgreSQL for Steps 1 - 6
                      dbname   = &quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
                      password = Sys.getenv(&quot;MIMIC_Password&quot;),
@@ -1703,10 +1708,18 @@ neonate
 </tbody>
 </table>
 </div>
-<div id="step-7-fix-me-to-match-postgresql-results" class="section level3">
-<h3>Step 7 (FIX ME to match PostgresQL results)</h3>
-<p>NOTE: There’s something wierd (for me) going on with the time comparisons in computing icuStayExpireFlag. There are unexplainable results using only the case “deathtime &lt;= intime”.</p>
-<p>Find how many of those deaths occurred within the ICU.</p>
+<div id="step-7" class="section level3">
+<h3>Step 7</h3>
+<pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
+<pre><code>[1] TRUE</code></pre>
+<pre class="r"><code>MimicDB &lt;- dbConnect(RPostgres::Postgres(),    # Postgres for Step 7
+                     dbname   = &quot;mimic&quot;,
+                     user     = Sys.getenv(&quot;MIMIC_User&quot;),
+                     password = Sys.getenv(&quot;MIMIC_Password&quot;),
+                     options  = &quot;-c search_path=mimiciii&quot;)</code></pre>
+<pre class="r"><code>icustays   &lt;- tbl(MimicDB, in_schema(&quot;mimiciii&quot;, &quot;icustays&quot;))
+patients   &lt;- tbl(MimicDB, in_schema(&quot;mimiciii&quot;, &quot;patients&quot;))
+admissions &lt;- tbl(MimicDB, in_schema(&quot;mimiciii&quot;, &quot;admissions&quot;))</code></pre>
 <pre class="r"><code>results7 &lt;-
   icustays                                                                %&gt;%
   inner_join(patients,   by = &quot;subject_id&quot;)                               %&gt;%
@@ -1803,10 +1816,10 @@ icuStayExpireFlag
 243653
 </td>
 <td style="text-align:left;">
-2138-07-17
+2138-07-17 21:20:07
 </td>
 <td style="text-align:left;">
-2138-07-17
+2138-07-17 23:32:21
 </td>
 <td style="text-align:left;">
 NA
@@ -1838,10 +1851,10 @@ N
 211552
 </td>
 <td style="text-align:left;">
-2101-10-20
+2101-10-20 19:10:11
 </td>
 <td style="text-align:left;">
-2101-10-26
+2101-10-26 20:43:09
 </td>
 <td style="text-align:left;">
 NA
@@ -1873,10 +1886,10 @@ N
 294638
 </td>
 <td style="text-align:left;">
-2191-03-16
+2191-03-16 00:29:31
 </td>
 <td style="text-align:left;">
-2191-03-17
+2191-03-17 16:46:31
 </td>
 <td style="text-align:left;">
 NA
@@ -1908,10 +1921,10 @@ N
 214757
 </td>
 <td style="text-align:left;">
-2103-02-02
+2103-02-02 06:04:24
 </td>
 <td style="text-align:left;">
-2103-02-02
+2103-02-02 08:06:00
 </td>
 <td style="text-align:left;">
 NA
@@ -1943,10 +1956,10 @@ N
 228232
 </td>
 <td style="text-align:left;">
-2175-05-30
+2175-05-30 21:30:54
 </td>
 <td style="text-align:left;">
-2175-06-03
+2175-06-03 13:39:54
 </td>
 <td style="text-align:left;">
 NA
@@ -1978,10 +1991,10 @@ N
 278444
 </td>
 <td style="text-align:left;">
-2121-05-23
+2121-05-23 15:35:29
 </td>
 <td style="text-align:left;">
-2121-05-23
+2121-05-23 22:01:00
 </td>
 <td style="text-align:left;">
 NA
@@ -2007,7 +2020,7 @@ N
 <pre class="r"><code>table(results7$icuStayExpireFlag)</code></pre>
 <pre><code>## 
 ##     N     Y 
-## 56776  4756</code></pre>
+## 56911  4621</code></pre>
 <pre class="r"><code>results7                                          %&gt;%
   group_by(icuStayAgeGroup, icuStayExpireFlag)    %&gt;%
   count()                                         %&gt;%
@@ -2036,10 +2049,10 @@ Y
 &gt;89
 </td>
 <td style="text-align:right;">
-2323
+2338
 </td>
 <td style="text-align:right;">
-398
+383
 </td>
 </tr>
 <tr>
@@ -2047,10 +2060,10 @@ Y
 adult
 </td>
 <td style="text-align:right;">
-46417
+46537
 </td>
 <td style="text-align:right;">
-4294
+4174
 </td>
 </tr>
 <tr>
@@ -2070,16 +2083,15 @@ neonate
 <pre><code>   
         N     Y
   N 54923     0
-  Y  1853  4756</code></pre>
+  Y  1988  4621</code></pre>
 </div>
 </div>
 </div>
 <div id="close-database" class="section level1">
 <h1>Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
-<pre><code>[1] TRUE</code></pre>
-<p>Processing time: 96.8 secs</p>
-<p>2018-12-29 2055</p>
+<p>Processing time: 81.7 secs</p>
+<p>2018-12-30 2341</p>
 </div>
 
 

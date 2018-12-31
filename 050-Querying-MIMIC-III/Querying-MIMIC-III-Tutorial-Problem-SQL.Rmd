@@ -7,7 +7,7 @@ output:
     toc: yes
 ---
 
-efg | 2018-09-21 | Updated 2018-12-29.
+efg | 2018-09-21 | Updated 2018-12-30.
 
 # Overview
 
@@ -25,6 +25,10 @@ Units were added to some of the variable names for clarity.
 
 Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path. 
 
+NOTES:
+
+Either RPostgreSQL or RPostgres seems to work with Postgres SQL queries.  However, only RPostgres works with Step 7 with the dplyr solution, so a switch in database drivers is made in step 7 for consistency with the dplyr solution.
+
 # Setup
 
 ```{r setup, include=FALSE}
@@ -38,7 +42,7 @@ Packages
 
 ```{r, comment=NA}
 library(DBI)
-library(RPostgreSQL)
+library(RPostgres) 
 library(tidyverse)
 library(kableExtra)
 ```
@@ -58,7 +62,7 @@ Show <- function(data, caption = NULL)
 Open database
 
 ```{r}
-MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(),    # PostgreSQL for Steps 1 - 6
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
@@ -403,8 +407,19 @@ SQLresults                                           %>%
   Show(caption = "Counts of Hospital Deaths ('Y')")
 ```
 
-
 ### Step 7
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+```{r}
+MimicDB <- dbConnect(RPostgres::Postgres(),    # Postgres for Step 7
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     options  = "-c search_path=mimiciii")
+```
 
 Find how many of those deaths occurred within the ICU.
 
@@ -464,6 +479,10 @@ FROM
   
   INNER JOIN admissions adm
   ON ie.hadm_id = adm.hadm_id
+  
+ORDER BY
+  SUBJECT_ID,
+  HADM_ID
 ```
 
 ```{r, comment=NA}

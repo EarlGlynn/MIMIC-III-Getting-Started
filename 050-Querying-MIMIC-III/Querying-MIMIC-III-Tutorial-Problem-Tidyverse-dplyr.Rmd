@@ -7,7 +7,7 @@ output:
     toc: yes
 ---
 
-efg | 2018-09-21 | Updated 2018-12-29.
+efg | 2018-09-21 | Updated 2018-12-30.
 
 # Overview
 
@@ -18,6 +18,12 @@ The examples from Section 3 “Patient numbers” through Section 7 “Services 
 Many of the comments below are from the source above.
 
 Prerequisites: This tutorial assumes that you have an active connection to an instance of MIMIC-III running on PostgreSQL. Note also that all the queries are written assuming that the MIMIC-III database is on your default search path. 
+
+NOTES:
+
+* RPostgreSQL works fine with dates before 1970, but seems to truncate datetime timestamps to dates in RStudio, and does not compute time intervals correctly at times.
+
+* Rpostgres does NOT work with dates before 1970 (*fix expected in Feb. 2019*), but is needed for Step 7 here for results to match between SQL and dplyr solutions.
 
 # Setup
 
@@ -53,7 +59,7 @@ Show <- function(data, caption = NULL)
 Open database
 
 ```{r, comment=NA}
-MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(), 
+MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(),    # PostgreSQL for Steps 1 - 6
                      dbname   = "mimic",
                      user     = Sys.getenv("MIMIC_User"),
                      password = Sys.getenv("MIMIC_Password"),
@@ -359,11 +365,25 @@ results6                                             %>%
   Show(caption = "Counts of Hospital Deaths ('Y')")
 ```
 
-### Step 7 (FIX ME to match PostgresQL results)
+### Step 7 
 
-NOTE:  There's something wierd (for me) going on with the time comparisons in computing icuStayExpireFlag.  There are unexplainable results using only the case "deathtime <= intime".
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
 
-Find how many of those deaths occurred within the ICU.
+```{r}
+MimicDB <- dbConnect(RPostgres::Postgres(),    # Postgres for Step 7
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     options  = "-c search_path=mimiciii")
+```
+
+```{r, comment=NA}
+icustays   <- tbl(MimicDB, in_schema("mimiciii", "icustays"))
+patients   <- tbl(MimicDB, in_schema("mimiciii", "patients"))
+admissions <- tbl(MimicDB, in_schema("mimiciii", "admissions"))
+```
 
 ```{r, comment=NA}
 results7 <-
