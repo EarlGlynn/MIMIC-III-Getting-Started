@@ -49,12 +49,14 @@ options(width=100)
 Helper function:  Common formatting mostly for data.frames/tibbles below
 
 ```{r}
-Show <- function(data)
+Show <- function(data, caption="", bigMark="", ...)
 {
-  data            %>%
-  kable("html")   %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "condensed"),
-                position = "left", full_width = FALSE, font_size=12)
+  data                                       %>%
+  kable("html", caption=caption,
+        format.args=list(big.mark=bigMark))  %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left",
+                full_width=FALSE, ...)
 }
 ```     
 
@@ -95,7 +97,7 @@ services   <- tbl(MimicDB, in_schema("mimiciii", "services"))
 ```{r, comment=NA}
 patients   %>% 
   head(5)  %>%
-  Show()
+  Show(font_size = 10)
 ```
 
 When reading the statement above, read the "%>%" pipe operator as "then". 
@@ -241,7 +243,7 @@ In the MIMIC-III database, we define an ICU stay to be continuous if a patient i
 ```{r, comment=NA}
 transfers  %>%
   head(5)  %>%
-  Show()
+  Show(font_size = 8)
 ```
 
 
@@ -254,7 +256,7 @@ The `transfers` table may have multiple entries per patient to provide detail of
 ```{r, comment=NA}
 transfers                    %>%
   filter(hadm_id == 112213)  %>%
-  Show()
+  Show(font_size = 8)
 ```
 
 ## 7. Services

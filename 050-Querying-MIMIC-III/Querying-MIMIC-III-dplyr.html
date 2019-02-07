@@ -168,23 +168,25 @@ $(document).ready(function () {
 <div id="setup" class="section level1">
 <h1>Setup</h1>
 <p>Helper function: Common formatting mostly for data.frames/tibbles below</p>
-<pre class="r"><code>Show &lt;- function(data)
+<pre class="r"><code>Show &lt;- function(data, caption=&quot;&quot;, bigMark=&quot;&quot;, ...)
 {
-  data            %&gt;%
-  kable(&quot;html&quot;)   %&gt;%
-  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;bordered&quot;, &quot;condensed&quot;),
-                position = &quot;left&quot;, full_width = FALSE, font_size=12)
+  data                                       %&gt;%
+  kable(&quot;html&quot;, caption=caption,
+        format.args=list(big.mark=bigMark))  %&gt;%
+  kable_styling(bootstrap_options=c(&quot;striped&quot;, &quot;bordered&quot;, &quot;condensed&quot;),
+                position=&quot;left&quot;,
+                full_width=FALSE, ...)
 }</code></pre>
 <p>Packages</p>
 <pre class="r"><code>library(DBI)
 library(RPostgreSQL)
 library(tidyverse)</code></pre>
-<pre><code>-- Attaching packages ----------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>-- Attaching packages ------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>v ggplot2 3.1.0     v purrr   0.2.5
 v tibble  1.4.2     v dplyr   0.7.7
 v tidyr   0.8.2     v stringr 1.3.1
 v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>-- Conflicts -------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>-- Conflicts ---------------------------------------------------------------------------------- tidyverse_conflicts() --
 x dplyr::filter() masks stats::filter()
 x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(dbplyr, warn.conflicts=FALSE)
@@ -208,8 +210,10 @@ services   &lt;- tbl(MimicDB, in_schema(&quot;mimiciii&quot;, &quot;services&quo
 <h2>3. Patient numbers</h2>
 <pre class="r"><code>patients   %&gt;% 
   head(5)  %&gt;%
-  Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+  Show(font_size = 10)</code></pre>
+<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<caption style="font-size: initial !important;">
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -376,7 +380,9 @@ NA
 <pre class="r"><code>patients  %&gt;% 
   count() %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -398,7 +404,9 @@ n
   distinct()      %&gt;%
   collect()       %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -425,7 +433,9 @@ F
   filter(gender == &quot;F&quot;) %&gt;% 
   count()               %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -446,7 +456,9 @@ n
   group_by(gender) %&gt;% 
   count()          %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -485,7 +497,9 @@ F
   group_by(expire_flag) %&gt;% 
   count()               %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -525,7 +539,9 @@ n
   select(subject_id, dob, hadm_id, admittime, expire_flag) %&gt;%
   head(5)                                                  %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -647,7 +663,9 @@ expire_flag
   arrange(hadm_id, subject_id)                               %&gt;%
   head(5)                                                    %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -791,7 +809,9 @@ first_admittime
   arrange(subject_id)                                                 %&gt;%
   head(5)                                                             %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -940,7 +960,9 @@ adult
   arrange(age_group, gender)                                    %&gt;%
   collect()                                                     %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -1030,8 +1052,10 @@ M
 <p>In the MIMIC-III database, we define an ICU stay to be continuous if a patient is returned to an ICU room within 24 hours of being moved to a ward. Patient ICU movements are recorded in the <code>transfers</code> table:</p>
 <pre class="r"><code>transfers  %&gt;%
   head(5)  %&gt;%
-  Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+  Show(font_size = 8)</code></pre>
+<table class="table table-striped table-bordered table-condensed" style="font-size: 8px; width: auto !important; ">
+<caption style="font-size: initial !important;">
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -1288,8 +1312,10 @@ NA
 <p>The <code>transfers</code> table may have multiple entries per patient to provide detail of all movement between various careunits of the hospital. The first entry in the <code>transfers</code> table for a patient who comes into the ICU will have nothing in the <code>prev_careunit</code> column. Similarly, the last entry for a patient will have nothing in the <code>curr_careunit</code>. Entries that have nothing in both previous and current careunit columns indicate that the patient has been transfered between non intensive care units. An example query for one patient and result from the transfers table is shown below.</p>
 <pre class="r"><code>transfers                    %&gt;%
   filter(hadm_id == 112213)  %&gt;%
-  Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+  Show(font_size = 8)</code></pre>
+<table class="table table-striped table-bordered table-condensed" style="font-size: 8px; width: auto !important; ">
+<caption style="font-size: initial !important;">
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -1630,7 +1656,9 @@ NA
 <pre class="r"><code>services                     %&gt;%
   filter(hadm_id == 112213)  %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 12px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -1682,8 +1710,8 @@ SURG
 <h1>Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
 <pre><code>[1] TRUE</code></pre>
-<p>Processing time: 3.3 secs</p>
-<p>2018-12-23 2310</p>
+<p>Processing time: 3.9 secs</p>
+<p>2019-02-06 2252</p>
 </div>
 
 

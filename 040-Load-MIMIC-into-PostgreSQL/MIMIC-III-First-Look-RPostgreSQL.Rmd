@@ -35,16 +35,18 @@ library(kableExtra)
 Common formatting mostly for data.frames/tibbles below
 
 ```{r}
-Show <- function(data)
+Show <- function(data, caption="", bigMark="", ...)
 {
-  data            %>%
-  kable("html")   %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "condensed"),
-                position = "left", full_width = FALSE, font_size=10)
+  data                                       %>%
+  kable("html", caption=caption,
+        format.args=list(big.mark=bigMark))  %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left",
+                full_width=FALSE, ...)
 }
 ```        
 
-# Open mimic database with RPostgreSQL
+# Open database with RPostgreSQL
 
 ```{r}
 MimicDB <- dbConnect(PostgreSQL(), 
@@ -63,7 +65,7 @@ admissions <- tbl(MimicDB, in_schema("mimiciii", "admissions"))
 ```{r}
 admissions %>% 
   head(5)  %>%
-  Show()
+  Show(font_size = 8)
 ```
 
 ```{r}

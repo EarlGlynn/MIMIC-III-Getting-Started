@@ -131,7 +131,7 @@ $(document).ready(function () {
 <li><a href="#packages"><span class="toc-section-number">1.1</span> Packages</a></li>
 <li><a href="#helper-function"><span class="toc-section-number">1.2</span> Helper function</a></li>
 </ul></li>
-<li><a href="#open-mimic-database-with-rpostgresql"><span class="toc-section-number">2</span> Open mimic database with RPostgreSQL</a></li>
+<li><a href="#open-database-with-rpostgresql"><span class="toc-section-number">2</span> Open database with RPostgreSQL</a></li>
 <li><a href="#admissions-table"><span class="toc-section-number">3</span> Admissions Table</a></li>
 <li><a href="#patients-table"><span class="toc-section-number">4</span> Patients Table</a></li>
 <li><a href="#close-database"><span class="toc-section-number">5</span> Close database</a></li>
@@ -148,12 +148,12 @@ $(document).ready(function () {
 library(RPostgreSQL)
 library(dbplyr, warn.conflicts=FALSE)    
 library(tidyverse)</code></pre>
-<pre><code>## -- Attaching packages ----------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>## -- Attaching packages ------------------------------------------------------------------------------- tidyverse 1.2.1 --</code></pre>
 <pre><code>## v ggplot2 3.1.0     v purrr   0.2.5
 ## v tibble  1.4.2     v dplyr   0.7.7
 ## v tidyr   0.8.2     v stringr 1.3.1
 ## v readr   1.1.1     v forcats 0.3.0</code></pre>
-<pre><code>## -- Conflicts -------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>## -- Conflicts ---------------------------------------------------------------------------------- tidyverse_conflicts() --
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::ident()  masks dbplyr::ident()
 ## x dplyr::lag()    masks stats::lag()
@@ -163,17 +163,19 @@ library(tidyverse)</code></pre>
 <div id="helper-function" class="section level2">
 <h2><span class="header-section-number">1.2</span> Helper function</h2>
 <p>Common formatting mostly for data.frames/tibbles below</p>
-<pre class="r"><code>Show &lt;- function(data)
+<pre class="r"><code>Show &lt;- function(data, caption=&quot;&quot;, bigMark=&quot;&quot;, ...)
 {
-  data            %&gt;%
-  kable(&quot;html&quot;)   %&gt;%
-  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;bordered&quot;, &quot;condensed&quot;),
-                position = &quot;left&quot;, full_width = FALSE, font_size=10)
+  data                                       %&gt;%
+  kable(&quot;html&quot;, caption=caption,
+        format.args=list(big.mark=bigMark))  %&gt;%
+  kable_styling(bootstrap_options=c(&quot;striped&quot;, &quot;bordered&quot;, &quot;condensed&quot;),
+                position=&quot;left&quot;,
+                full_width=FALSE, ...)
 }</code></pre>
 </div>
 </div>
-<div id="open-mimic-database-with-rpostgresql" class="section level1">
-<h1><span class="header-section-number">2</span> Open mimic database with RPostgreSQL</h1>
+<div id="open-database-with-rpostgresql" class="section level1">
+<h1><span class="header-section-number">2</span> Open database with RPostgreSQL</h1>
 <pre class="r"><code>MimicDB &lt;- dbConnect(PostgreSQL(), 
                      dbname=&quot;mimic&quot;,
                      user     = Sys.getenv(&quot;MIMIC_User&quot;),
@@ -200,8 +202,10 @@ dbListTables(MimicDB) </code></pre>
 <pre class="r"><code>admissions &lt;- tbl(MimicDB, in_schema(&quot;mimiciii&quot;, &quot;admissions&quot;))</code></pre>
 <pre class="r"><code>admissions %&gt;% 
   head(5)  %&gt;%
-  Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+  Show(font_size = 8)</code></pre>
+<table class="table table-striped table-bordered table-condensed" style="font-size: 8px; width: auto !important; ">
+<caption style="font-size: initial !important;">
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -565,7 +569,9 @@ ACUTE CORONARY SYNDROME
   group_by(admission_type)                %&gt;%
   count()                                 %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -615,7 +621,9 @@ EMERGENCY
   group_by(insurance)                     %&gt;%
   count()                                 %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -673,7 +681,9 @@ Medicaid
   group_by(admission_location) %&gt;%
   count()                      %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:left;">
@@ -768,7 +778,9 @@ TRSF WITHIN THIS FACILITY
   head(5)                 %&gt;%
   collect()               %&gt;%
   Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -937,7 +949,9 @@ FROM   mimiciii.patients
 ORDER BY dob
 LIMIT 5</code></pre>
 <pre class="r"><code>SQLchunkOutput %&gt;% Show()</code></pre>
-<table class="table table-striped table-bordered table-condensed" style="font-size: 10px; width: auto !important; ">
+<table class="table table-striped table-bordered table-condensed" style="width: auto !important; ">
+<caption>
+</caption>
 <thead>
 <tr>
 <th style="text-align:right;">
@@ -1104,8 +1118,8 @@ NA
 <h1><span class="header-section-number">5</span> Close database</h1>
 <pre class="r"><code>dbDisconnect(MimicDB)</code></pre>
 <pre><code>[1] TRUE</code></pre>
-<p>Processing time: 2.0 secs</p>
-<p>2018-12-23 2102</p>
+<p>Processing time: 2.4 secs</p>
+<p>2019-02-06 2242</p>
 </div>
 
 
