@@ -1,0 +1,530 @@
+---
+title: "MIMIC-III SQL Examples by Pallab Paul -- with dplyr equivalents"
+output:
+  html_document:
+    toc: yes
+    number_sections: yes
+  html_notebook:
+    toc: yes
+---
+
+<style type="text/css">
+div#TOC li {
+    list-style:none;
+    background-image:none;
+    background-repeat:none;
+    background-position:0;
+}
+</style>                          
+
+efg | 2019-03-03
+
+# Purpose
+
+The purpose of this notebook is to 
+
+* Recreate Postgres `SQL` examples from Pallab Paul's Jupyter notebook in an R Studio notebook.  
+
+See blog post [Predictions using the MIMIC-III Database (Part 1)](https://medium.com/intel-student-ambassadors/predictions-using-the-mimic-iii-database-part-1-1aa58475da40) and details in Jupyter notebook, `mimiciii-sql.ipynb`, which can be [found here](https://github.com/PallabPaul/mimic-mortality-predictions).
+
+* Create equivalent `dplyr` examples in R.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(cli.unicode = FALSE)
+time.1 <- Sys.time()
+options(width=100)
+```
+
+# Setup
+
+Simple function using a small part of info from [Create Awesome HTML Table with knitr::kable and kableExtra](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html).
+
+## Helper function
+
+Common formatting mostly for data.frames/tibbles
+
+```{r, comment=NA}
+Show <- function(data, caption="", bigMark="", ...)
+{
+  data                                       %>%
+  kable("html", caption=caption,
+        format.args=list(big.mark=bigMark))  %>%
+  kable_styling(bootstrap_options=c("striped", "bordered", "condensed"),
+                position="left",
+                full_width=FALSE, ...)
+}
+```     
+
+## Packages
+
+```{r, comment=NA}
+library(tidyverse)
+library(DBI)
+
+library(dbplyr, warn.conflicts=FALSE)
+library(kableExtra)
+library(lubridate, warn.conflicts=FALSE)   # date computations, e.g., floor_date
+```
+
+Which Postgres package?  There have been some problems with both, but either works fine for the examples below.
+
+```{r, comment=NA}
+library(RPostgreSQL)
+#library(RPostgres)
+```
+
+## Open MIMIC-III
+
+```{r, comment=NA}
+#MimicDB <- dbConnect(RPostgreSQL::PostgreSQL(),   # Only shows dates with admittime
+MimicDB <- dbConnect(RPostgres::Postgres(),        # Shows dates and times with admittime
+                     dbname   = "mimic",
+                     user     = Sys.getenv("MIMIC_User"),
+                     password = Sys.getenv("MIMIC_Password"),
+                     options  = "-c search_path=mimiciii",
+                     bigint   = "integer")   # 64-bit ints not needed (RPostgres Only)
+```
+
+## Table references for dplyr
+
+```{r, comment=NA}
+admissions <- tbl(MimicDB, in_schema("mimiciii", "admissions"))
+patients   <- tbl(MimicDB, in_schema("mimiciii", "patients"))
+transfers  <- tbl(MimicDB, in_schema("mimiciii", "transfers"))
+services   <- tbl(MimicDB, in_schema("mimiciii", "services"))
+```
+
+# Example 1
+
+## SQL
+
+```{sql, connection=MimicDB, output.var="SQLresults"}   
+select count(subject_id)
+from   mimiciii.patients
+```
+
+```{r, comment=NA}
+SQLresults  %>% Show(bigMark = ",")
+```
+
+## dplyr
+
+```{r, comment=NA}
+patients                  %>%
+  summarize(count = n())  %>%
+  Show(bigMark = ",")
+```
+
+Look at counts after join
+
+```{r, comment=NA}
+admissions                                         %>%
+  inner_join(patients, by = "subject_id")          %>%
+  summarize(nAdmissions = n(),
+            nSubjects   = n_distinct(subject_id))  %>%
+  Show(bigMark = ",")
+```
+
+# Example 2
+
+Paul: *We first start by figuring out the patient’s birth date and the patient’s
+admission dates to the ICU.*
+
+## SQL
+
+```{sql, connection=MimicDB, output.var="SQLresults"}   
+SELECT p.subject_id, 
+       p.dob, 
+       a.hadm_id,
+       a.admittime, 
+       p.expire_flag
+FROM   mimiciii.admissions a
+INNER JOIN mimiciii.patients p
+ON     p.subject_id = a.subject_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>%
+  head()   %>%
+  Show()
+```
+
+```{r, comment=NA}
+SQLresults %>%
+  tail()   %>%
+  Show()
+```
+
+## dplyr
+
+```{r, comment=NA}
+dplyrResults <-
+  admissions                                                %>%
+  inner_join(patients, by = "subject_id")                   %>%
+  select(subject_id, dob, hadm_id, admittime, expire_flag)  %>%
+  collect()
+```
+
+```{r, comment=NA}
+dim(dplyrResults)
+```
+
+```{r, comment=NA}
+dplyrResults %>%
+  head()   %>%
+  Show()
+```
+
+```{r, comment=NA}
+dplyrResults %>%
+  tail()     %>%
+  Show()
+```
+
+# Example 3
+
+Paul:  *Next, we figure out the patient's first admission date so that we do not
+have multiple records of the same patient and so that we only have one
+age per patient*
+
+## SQL
+
+```{sql, connection=MimicDB, output.var="SQLresults"}  
+SELECT p.subject_id, 
+       p.dob, 
+       a.hadm_id,
+       a.admittime, 
+       p.expire_flag,
+       MIN (a.admittime) OVER (PARTITION BY p.subject_id) AS first_admittime
+FROM   mimiciii.admissions a
+INNER JOIN mimiciii.patients p
+ON    p.subject_id = a.subject_id
+ORDER BY a.hadm_id, 
+         p.subject_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults %>%
+  head()   %>%
+  Show()
+```
+
+```{r, comment=NA}
+SQLresults %>%
+  tail()   %>%
+  Show()
+```
+
+BUT, there are multiple records for some patients since the result had 58,976 records (# of admissions) instead of 46,520 records (# of patients).
+
+Patients with multiple records had the same `dob` and `first_admission` (age).
+
+[The group by `subject`, `dob` and `gender` eliminates the problem in the next example.]
+
+```{r, comment=NA}
+SQLresults                        %>%
+  group_by(subject_id)            %>%
+  summarize(RecordsPerSubject = n())   %>%
+  ungroup()                       %>%
+  filter(RecordsPerSubject > 1)   %>%  
+  group_by(RecordsPerSubject)     %>%
+  count()                         %>%
+  ungroup(RecordsPerSubject)      %>%
+  Show()
+```
+
+```{r, comment=NA}
+SQLresults                             %>%
+  group_by(subject_id)                 %>%
+  summarize(RecordsPerSubject = n())   %>%
+  ungroup()                            %>%
+  filter(RecordsPerSubject == 15)      %>%  
+  Show()
+```
+
+```{r, comment=NA}
+SQLresults                     %>%
+  filter(subject_id == 41976)  %>%
+  arrange(admittime)           %>%
+  Show()
+```
+
+A possible solution to get one record per patient requires only records with `hadm_id` for `first_admittime`:
+
+```{r, comment=NA}
+SQLresults                              %>%
+  filter(admittime == first_admittime)  %>%
+  count()                               %>%
+  Show()
+```
+
+## dplyr
+
+This dplyr example does what I think the above query was intended to do.
+
+From StackOverFlow: [Select first and last row from grouped data](https://stackoverflow.com/questions/31528981/select-first-and-last-row-from-grouped-data).
+
+```{r, comment=NA}
+dplyrResults <-
+  admissions                                                %>%
+  inner_join(patients, by = "subject_id")                   %>%
+  select(subject_id, dob, hadm_id, admittime, expire_flag)  %>%
+  
+  group_by(subject_id)       %>%
+  arrange(admittime)         %>%
+  filter(row_number() == 1)  %>%
+  ungroup()                  %>%
+  rename(first_admittime = admittime)  %>%   
+
+  collect()                   %>%
+  arrange(hadm_id, subject_id)
+```
+
+There is no need for `admittime` and `first_admittime` since both are the same here.
+
+```{r, comment=NA}
+dim(dplyrResults)
+```
+
+```{r, comment=NA}
+dplyrResults %>%
+  head()     %>%
+  Show()
+```
+
+```{r, comment=NA}
+dplyrResults %>%
+  tail()     %>%
+  Show()
+```
+
+There is now only a single record for `subject_id` 41976, instead of 15 records in the SQL version above.
+
+```{r, comment=NA}
+dplyrResults                   %>%
+  filter(subject_id == 41976)  %>%
+  Show()
+```
+
+# Example 4
+
+Paul:  *We then find the age of the patient by finding the difference between
+their date of birth and the date of their first admission. We put these
+age groups into three categories: neonatal (< 15 years of age), adult
+(age range of 15–89) and >89 years of age.*
+
+## SQL
+
+```{sql, connection=MimicDB, output.var="SQLresults"}  
+WITH first_admission_time AS
+(
+  SELECT
+      p.subject_id, 
+      p.dob, 
+      p.gender,
+      MIN (a.admittime) AS first_admittime,
+      MIN( ROUND( (cast(admittime as date) - cast(dob as date)) / 365.242,2) ) AS first_admit_age
+  FROM mimiciii.patients p
+  INNER JOIN mimiciii.admissions a
+  ON p.subject_id = a.subject_id
+  GROUP BY p.subject_id, p.dob, p.gender
+  ORDER BY p.subject_id
+)
+SELECT
+    subject_id, 
+    dob, 
+    gender, 
+    first_admittime, 
+    first_admit_age,
+    CASE
+        -- all ages > 89 in the database were replaced with 300
+        WHEN first_admit_age > 89
+             then '>89'
+        WHEN first_admit_age >= 14
+             THEN 'adult'
+        WHEN first_admit_age <= 1
+             THEN 'neonate'
+        ELSE 'middle'
+    END AS age_group
+FROM first_admission_time
+ORDER BY subject_id
+```
+
+```{r, comment=NA}
+dim(SQLresults)
+```
+
+```{r, comment=NA}
+SQLresults  %>%
+  head()    %>%
+  Show()
+```
+
+## dplyr
+
+I'm not sure how to use the Postgres `cast` and `as` through `dbplyr`.
+
+Let's use database to extract data, and complete the computations in R.
+
+```{r, comment=NA}
+dplyrResults <-
+  admissions                                  %>%
+  inner_join(patients, by = "subject_id")     %>%
+  select(subject_id, 
+         dob, 
+         hadm_id, 
+         admittime, 
+         gender)                              %>%
+  
+  group_by(subject_id, gender)  %>%
+  arrange(admittime)            %>%
+  filter(row_number() == 1)     %>%
+  ungroup()                     %>%
+  
+  rename(first_admittime = admittime)  %>%   
+  arrange(subject_id)           %>%
+  collect()                     %>%  # extract from database
+  
+  mutate(first_admit_age = (as.numeric(floor_date(first_admittime, unit="day") - 
+                                       floor_date(dob,    unit="day"), 
+                            units="days")  /  365.242)  %>%  round(2))  %>%
+  mutate(age_group = case_when(first_admit_age >  89 ~ ">89",
+                               first_admit_age >= 14 ~ "adult",
+                               first_admit_age <=  1 ~ "neonate",
+                               TRUE                  ~ "middle"))
+```
+
+```{r, comment=NA}
+nrow(dplyrResults)
+```
+
+```{r, comment=NA}
+dplyrResults %>%
+  head()     %>%
+  Show()
+```
+
+# Example 5
+
+Paul:  *Finally, we can use this information to categorize the patient’s that we
+want in our cohort for further tests.*
+
+## SQL
+
+```{sql, connection=MimicDB, output.var="SQLresults"} 
+WITH first_admission_time AS
+(
+  SELECT
+      p.subject_id, p.dob, p.gender
+      , MIN (a.admittime) AS first_admittime
+      , MIN( ROUND( (cast(admittime as date) - cast(dob as date)) / 365.242,2) )
+          AS first_admit_age
+  FROM mimiciii.patients p
+  INNER JOIN mimiciii.admissions a
+  ON p.subject_id = a.subject_id
+  GROUP BY p.subject_id, p.dob, p.gender
+  ORDER BY p.subject_id
+)
+, age as
+(
+  SELECT
+      subject_id, dob, gender,
+      first_admittime, first_admit_age,
+      CASE
+          -- all ages > 89 in the database were replaced with 300
+          -- we check using > 100 as a conservative threshold to ensure we capture all these patients
+          WHEN first_admit_age > 100
+               then '>89'
+          WHEN first_admit_age >= 14
+               THEN 'adult'
+          WHEN first_admit_age <= 1
+               THEN 'neonate'
+          ELSE 'middle'
+      END AS age_group
+  FROM first_admission_time
+)
+select age_group, gender, 
+       count(subject_id) as NumberOfPatients
+from age
+group by age_group, gender
+```
+
+```{r, comment=NA}
+SQLresults %>%
+  head()   %>%
+  Show()
+```
+
+## dplyr
+
+Extend previous results 
+
+```{r, comment=NA}
+dplyrResults                         %>%
+  group_by(age_group, gender)        %>%
+  summarize(NumberOfPatients = n())  %>%
+  Show()
+```
+
+Use `spread` to show results by gender in more compact format
+
+```{r, comment=NA}
+byAgeGroupAndGender <-
+  dplyrResults                       %>%
+  group_by(age_group, gender)        %>%
+  summarize(NumberOfPatients = n())  %>%
+  ungroup()                          %>%
+  spread(gender, NumberOfPatients) 
+
+byAgeGroupAndGender %>% Show()
+```
+
+Add Row Totals
+
+```{r}
+byAgeGroupAndGender <- 
+  byAgeGroupAndGender                           %>%
+  mutate(Total = rowSums(.[-1], na.rm = TRUE))  
+```
+
+Add Column Totals
+
+```{r, comment=NA}
+byAgeGroupAndGender <- 
+  bind_rows(byAgeGroupAndGender,
+            bind_cols(age_group = "Total",
+                      byAgeGroupAndGender %>%
+                        summarize_if(is.numeric, sum, na.rm=TRUE)))
+```
+
+
+```{r}
+byAgeGroupAndGender %>% Show(bigMark = ",")
+```
+
+
+**Close Database**
+
+```{r, comment=NA}
+dbDisconnect(MimicDB)
+```
+
+```{r, comment=NA, echo=FALSE}
+time.2 <- Sys.time()
+processingTime <- paste("Processing time:", 
+                        sprintf("%.1f",
+                                as.numeric(difftime(time.2, time.1,
+                                                    units="secs"))), "secs\n")
+```
+
+`r processingTime`
+`r format(time.2, "%Y-%m-%d %H%M")`
